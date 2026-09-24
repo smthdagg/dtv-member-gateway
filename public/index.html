@@ -56,6 +56,7 @@
         <button class="tab" data-tab="renewals">续期申请 <b id="renewal-count" class="count-badge hidden">0</b></button>
         <button class="tab" data-tab="device-requests">设备扩容 <b id="device-request-count" class="count-badge hidden">0</b></button>
         <button class="tab" data-tab="bot-settings">Bot 设置</button>
+        <button class="tab" data-tab="logs">日志管理</button>
         <button class="tab" data-tab="audit">审计记录</button>
       </nav>
 
@@ -149,6 +150,19 @@
             <label class="wide">管理员 Telegram ID<input id="bot-admin-ids" name="admin_telegram_ids" required placeholder="例如 123456789, 987654321"><small>可填写多个数字 ID，用逗号或空格分隔。修改后会用于 Bot 管理员识别和审核通知；请保留自己的 ID，以继续使用 Bot 管理菜单。</small></label>
             <div class="wide form-submit"><button id="save-telegram-settings" class="button primary" type="submit">保存配置并连接 Bot</button><button id="configure-bot" class="button soft" type="button">重新绑定 Webhook</button><span id="telegram-settings-note" class="muted"></span></div>
             <p class="wide settings-note">Webhook 密钥会自动生成并加密保存。后台登录密码、会话密钥和数据库加密密钥仍由 Cloudflare 保管。</p>
+          </form>
+        </div>
+      </section>
+
+      <section id="panel-logs" class="panel">
+        <div class="panel-heading"><div><h2>日志保留与清理</h2><p>访问统计、管理员操作历史和 Bot 更新记录按所选期限自动清理。</p></div></div>
+        <div class="card settings-card">
+          <div class="settings-status"><span class="section-kicker">当前记录</span><strong id="log-retention-status">正在读取日志设置…</strong></div>
+          <form id="log-settings-form" class="form-grid">
+            <label>自动保留时间<select id="log-retention-days" name="retention_days"><option value="30">30 天</option><option value="60">60 天</option><option value="90">90 天</option></select><small>每天自动删除超过期限的访问统计、审计记录和 Telegram 更新去重记录。</small></label>
+            <div class="form-submit"><button class="button primary" type="submit">保存保留期限</button><button id="cleanup-old-logs" class="button soft" type="button">立即清理过期日志</button></div>
+            <div class="wide form-submit"><button id="clear-log-history" class="button danger" type="button">清空全部系统日志</button><span id="log-settings-note" class="muted"></span></div>
+            <p class="wide settings-note">清空操作会删除访问统计、管理员操作历史和 Bot 更新去重记录，无法恢复；不会删除会员、设备、套餐或资源。</p>
           </form>
         </div>
       </section>

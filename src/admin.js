@@ -8,6 +8,22 @@ import { configureTelegramWebhook, getTelegramConfig, saveTelegramConfig } from 
 
 const MEMBER_STATUSES = new Set(["pending", "active", "paused", "expired", "revoked"]);
 const RESOURCE_TYPES = new Set(["url", "tv", "json", "repository", "stremio"]);
+const LOG_RETENTION_OPTIONS = new Set([30, 60, 90]);
+
+async function logRetentionDays(db, env) {
+  const row = await db.prepare("SELECT plain_value FROM app_settings WHERE setting_key = 'log_retention_days'").first();
+  const configured = Number(row?.plain_value || env.USAGE_RETENTION_DAYS || 90);
+  return LOG_RETENTION_OPTIONS.has(configured) ? configured : 90;
+}
+
+async function logCounts(db) {
+  const [access, auditRows, telegramUpdates] = await Promise.all([
+    db.prepare("SELECT COUNT(*) AS count FROM usage_hourly").first(),
+    db.prepare("SELECT COUNT(*) AS count FROM audit_events").first(),
+    db.prepare("SELECT COUNT(*) AS count FROM telegram_updates").first(),
+  ]);
+  return { access_rows: Number(access?.count || 0), audit_rows: Number(auditRows?.count || 0), telegram_update_rows: Number(telegramUpdates?.count || 0) };
+}
 
 function validId(value) {
   return typeof value === "string" && /^[0-9a-f-]{20,40}$/iu.test(value);
@@ -385,6 +401,36 @@ export async function adminApi(request, env) {
       webhook_error: webhook.error || "",
     });
   }
+  if (path === "/admin/api/settings/logs" && method === "GET") {
+    const [retentionDays, counts] = await Promise.all([logRetentionDays(env.DB, env), logCounts(env.DB)]);
+    return json({ retention_days: retentionDays, ...counts }, 200, { "cache-control": "no-store" });
+  }
+  if (path === "/admin/api/settings/logs" && method === "PUT") {
+    const body = await readJson(request, 4096);
+    const retentionDays = Number(body?.retention_days);
+    if (!LOG_RETENTION_OPTIONS.has(retentionDays)) return apiError("LOG_RETENTION_INVALID", 400);
+    await env.DB.prepare("INSERT INTO app_settings (setting_key, plain_value, encrypted_value, updated_at) VALUES ('log_retention_days', ?, NULL, ?) ON CONFLICT(setting_key) DO UPDATE SET plain_value = excluded.plain_value, encrypted_value = NULL, updated_at = excluded.updated_at")
+      .bind(String(retentionDays), nowIso()).run();
+    return json({ ok: true, retention_days: retentionDays });
+  }
+  if (path === "/admin/api/logs/cleanup" && method === "POST") {
+    const retentionDays = await logRetentionDays(env.DB, env);
+    const cutoff = new Date(Date.now() - retentionDays * 86_400_000).toISOString();
+    const results = await env.DB.batch([
+      env.DB.prepare("DELETE FROM usage_hourly WHERE hour < ?").bind(cutoff.slice(0, 13)),
+      env.DB.prepare("DELETE FROM audit_events WHERE timestamp < ?").bind(cutoff),
+      env.DB.prepare("DELETE FROM telegram_updates WHERE received_at < ?").bind(cutoff),
+    ]);
+    return json({ ok: true, retention_days: retentionDays, deleted_access_rows: Number(results[0]?.meta?.changes || 0), deleted_audit_rows: Number(results[1]?.meta?.changes || 0), deleted_telegram_update_rows: Number(results[2]?.meta?.changes || 0), ...(await logCounts(env.DB)) });
+  }
+  if (path === "/admin/api/logs" && method === "DELETE") {
+    const results = await env.DB.batch([
+      env.DB.prepare("DELETE FROM usage_hourly"),
+      env.DB.prepare("DELETE FROM audit_events"),
+      env.DB.prepare("DELETE FROM telegram_updates"),
+    ]);
+    return json({ ok: true, deleted_access_rows: Number(results[0]?.meta?.changes || 0), deleted_audit_rows: Number(results[1]?.meta?.changes || 0), deleted_telegram_update_rows: Number(results[2]?.meta?.changes || 0), ...(await logCounts(env.DB)) });
+  }
 
   if (path === "/admin/api/overview" && method === "GET") {
     const [usage, totals, applications, deviceRequests] = await Promise.all([
@@ -548,9 +594,9 @@ export async function adminApi(request, env) {
     const memberId = parts[4];
     const [member, devices, usage, events] = await Promise.all([
       env.DB.prepare("SELECT m.*, p.name AS plan_name, substr(t.token_hash, -8) AS token_suffix FROM members m LEFT JOIN plans p ON p.id = m.plan_id LEFT JOIN tokens t ON t.member_id = m.id AND t.revoked_at IS NULL WHERE m.id = ?").bind(memberId).first(),
-      env.DB.prepare("SELECT id, trust_level, user_agent_hint, ip_address, geo_location, first_seen, last_seen, revoked_at FROM devices WHERE member_id = ? ORDER BY last_seen DESC LIMIT 50").bind(memberId).all(),
-      env.DB.prepare("SELECT u.hour, r.slug, u.allowed_count, u.denied_count, u.last_seen FROM usage_hourly u JOIN resources r ON r.id = u.resource_id WHERE u.member_id = ? ORDER BY u.hour DESC LIMIT 60").bind(memberId).all(),
-      env.DB.prepare("SELECT action, timestamp, change_summary FROM audit_events WHERE target_type = 'member' AND target_id = ? ORDER BY timestamp DESC LIMIT 40").bind(memberId).all(),
+      env.DB.prepare("SELECT id, trust_level, user_agent_hint, ip_address, geo_location, first_seen, last_seen, revoked_at, network_bucket, geo_region_key, browser_key, last_seen_day FROM devices WHERE member_id = ? ORDER BY last_seen DESC LIMIT 50").bind(memberId).all(),
+      env.DB.prepare("SELECT u.hour, r.slug, r.name AS resource_name, u.allowed_count, u.denied_count, u.last_seen FROM usage_hourly u JOIN resources r ON r.id = u.resource_id WHERE u.member_id = ? ORDER BY u.hour DESC LIMIT 60").bind(memberId).all(),
+      env.DB.prepare("SELECT actor_id, action, timestamp, change_summary FROM audit_events WHERE target_type = 'member' AND target_id = ? ORDER BY timestamp DESC LIMIT 40").bind(memberId).all(),
     ]);
     return member ? json({ member, devices: devices.results || [], usage: usage.results || [], events: events.results || [] }) : apiError("MEMBER_NOT_FOUND", 404);
   }

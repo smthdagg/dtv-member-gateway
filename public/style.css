@@ -141,6 +141,10 @@ tbody tr:hover td { background: #ffffff04; }
 .detail-content { color: #c2c2d0; font-size: 11px; line-height: 1.8; }
 .detail-content h3 { color: #e6e3f1; font-size: 12px; margin: 15px 0 4px; }
 .detail-content code { color: #b7a8ff; }
+.detail-table-wrap { margin-top: 7px; }
+.detail-table { min-width: 520px; font-size: 11px; }
+.detail-table th, .detail-table td { padding: 8px 10px; }
+.detail-table td { overflow-wrap: anywhere; }
 .compact { padding: 17px 0 0; border-top: 1px solid var(--line); margin-top: 18px; }
 .renew-row { display: grid; grid-template-columns: 1fr auto; align-items: end; gap: 14px; padding: 15px 0; border-top: 1px solid var(--line); }
 .token-result { white-space: pre-wrap; overflow-wrap: anywhere; padding: 13px; border: 1px solid #71dfc340; border-radius: 9px; background: #71dfc30d; color: #bbf6e4; font-size: 11px; line-height: 1.6; }

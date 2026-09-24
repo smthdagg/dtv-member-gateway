@@ -85,7 +85,7 @@ SESSION_SECRET 和 TOKEN_ENCRYPTION_KEY 用第一条命令生成；ADMIN_PASSWOR
 
 截至 2026-09-24，Cloudflare 文档列出 Workers Free 每日 100,000 次请求，D1 Free 每日 5,000,000 行读取和 100,000 行写入；超过 Free D1 行读写限制时查询会失败直到 UTC 午夜重置。[Workers 限制](https://developers.cloudflare.com/workers/platform/limits/) · [D1 价格与用量](https://developers.cloudflare.com/d1/platform/pricing/) · [D1 Free 限额执行公告](https://developers.cloudflare.com/changelog/post/2026-09-01-d1-free-tier-limit-enforcement/)
 
-每个授权请求会更新一条小时统计，默认保留 90 天，可通过 USAGE_RETENTION_DAYS 调整；每分钟频控使用 Cloudflare Rate Limiting Binding，不写入 D1。Free 额度下，预计 D1 行写入会先于 Worker 请求额度成为压力点。5,000 个注册会员本身不能说明日请求量；客户端轮询频率、资源数量和实际使用量决定是否应启用 Workers Paid / D1 Paid。Cloudflare Rate Limiting Binding 是按边缘位置的近似频控，不用于精确结算或严格全局配额。[Rate Limiting Binding 说明](https://developers.cloudflare.com/workers/runtime-apis/bindings/rate-limit/)
+每个授权请求会更新一条小时统计。管理员可在“日志管理”中选择保留 30、60 或 90 天；定时清理覆盖访问统计、管理员审计和 Telegram 更新去重记录，也可立即清理过期记录或清空这三类日志。清理日志不会删除会员、设备、套餐或资源。每分钟频控使用 Cloudflare Rate Limiting Binding，不写入 D1。Free 额度下，预计 D1 行写入会先于 Worker 请求额度成为压力点。5,000 个注册会员本身不能说明日请求量；客户端轮询频率、资源数量和实际使用量决定是否应启用 Workers Paid / D1 Paid。Cloudflare Rate Limiting Binding 是按边缘位置的近似频控，不用于精确结算或严格全局配额。[Rate Limiting Binding 说明](https://developers.cloudflare.com/workers/runtime-apis/bindings/rate-limit/)
 
 ## 首次使用
 
@@ -96,7 +96,7 @@ SESSION_SECRET 和 TOKEN_ENCRYPTION_KEY 用第一条命令生成；ADMIN_PASSWOR
 5. 会员通过 Bot 获取分发地址、查看资料和设备、移除设备、申请增加设备数或申请续期；设备扩容和续期审核通过后会自动更新会员资料。
 6. 暂停、撤销、到期或轮换 Token 后，之后的新网关请求会立即被拒绝。
 
-后台密码目前为单一共享管理员密码，由 Wrangler Secret 管理；Bot 管理员 Telegram ID 可在后台“Bot 设置”中维护。Bot 申请保存用户提交的微信号和会员号。设备名额按 User-Agent 与 Cloudflare 提供的 IP 地理位置组合计数，同一组合重复访问只占一个名额。达到上限时仅拒绝新的设备标识，已登记设备继续访问；会员移除设备会释放一个名额，Bot 可提交增加设备数申请，管理员批准后自动提高上限（最多 50）。此识别不读取硬件序列号；同一位置、相同 User-Agent 的不同设备可能合并，地理位置或客户端标识变化也可能产生新记录。完整订阅 JSON 保留全部条目，仅把可代理地址替换为会员专属网关地址；嵌套 JSON 地址同样代理，其他响应以流方式透传并支持 Range。
+后台密码目前为单一共享管理员密码，由 Wrangler Secret 管理；Bot 管理员 Telegram ID 可在后台“Bot 设置”中维护。Bot 申请保存用户提交的微信号和会员号。设备名额按 IPv4 /16 网段（IPv6 /64）、Cloudflare 国家/地区和浏览器类型组合识别。同一组合跨日复用同一个设备登记，同一天内的重复访问不会反复占用名额；访问统计独立按小时记录。达到上限时仅拒绝新的设备组，已登记设备继续访问；会员移除设备会释放一个名额，Bot 可提交增加设备数申请，管理员批准后自动提高上限（最多 50）。此识别不读取硬件序列号；同一网段、地区和浏览器类型的不同设备可能合并，网络或客户端特征变化也可能产生新记录。完整订阅 JSON 保留全部条目，仅把可代理地址替换为会员专属网关地址；嵌套 JSON 地址同样代理，其他响应以流方式透传并支持 Range。
 
 ## 尚需上线前确认
 

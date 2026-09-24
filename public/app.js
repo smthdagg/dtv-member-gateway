@@ -84,6 +84,7 @@ $$(".tab").forEach((button) => button.addEventListener("click", () => {
   if (button.dataset.tab === "renewals") loadRenewals();
   if (button.dataset.tab === "device-requests") loadDeviceLimitRequests();
   if (button.dataset.tab === "bot-settings") loadTelegramSettings();
+  if (button.dataset.tab === "logs") loadLogSettings();
   if (button.dataset.tab === "audit") loadAudit();
 }));
 
@@ -213,6 +214,52 @@ async function loadTelegramSettings() {
   try { renderTelegramSettings(await api("/settings/telegram")); }
   catch (error) { $("#bot-config-status").textContent = "读取 Bot 配置失败：" + error.message; }
 }
+
+function renderLogSettings(settings) {
+  $("#log-retention-days").value = String(settings.retention_days || 90);
+  $("#log-retention-status").textContent = `访问统计 ${Number(settings.access_rows || 0).toLocaleString("zh-CN")} 条 · 管理员操作 ${Number(settings.audit_rows || 0).toLocaleString("zh-CN")} 条 · Bot 去重记录 ${Number(settings.telegram_update_rows || 0).toLocaleString("zh-CN")} 条`;
+}
+
+async function loadLogSettings() {
+  try { renderLogSettings(await api("/settings/logs")); }
+  catch (error) { $("#log-retention-status").textContent = "读取日志设置失败：" + error.message; }
+}
+
+$("#log-settings-form").addEventListener("submit", async (event) => {
+  event.preventDefault();
+  const note = $("#log-settings-note");
+  try {
+    const result = await api("/settings/logs", { method: "PUT", body: JSON.stringify({ retention_days: Number($("#log-retention-days").value) }) });
+    note.textContent = `已保存：日志保留 ${result.retention_days} 天。`;
+    toast("日志保留期限已保存");
+    await loadLogSettings();
+  } catch (error) { note.textContent = "保存失败：" + error.message; }
+});
+
+$("#cleanup-old-logs").addEventListener("click", async () => {
+  const button = $("#cleanup-old-logs");
+  button.disabled = true;
+  try {
+    const result = await api("/logs/cleanup", { method: "POST", body: "{}" });
+    $("#log-settings-note").textContent = `清理完成：访问统计 ${result.deleted_access_rows} 条、管理员操作 ${result.deleted_audit_rows} 条、Bot 去重记录 ${result.deleted_telegram_update_rows} 条。`;
+    renderLogSettings(result);
+    toast("过期日志清理完成");
+  } catch (error) { $("#log-settings-note").textContent = "清理失败：" + error.message; }
+  finally { button.disabled = false; }
+});
+
+$("#clear-log-history").addEventListener("click", async () => {
+  if (!confirm("确定清空全部访问统计、管理员操作历史和 Bot 去重记录？此操作无法恢复；会员、设备、套餐和资源不会删除。")) return;
+  const button = $("#clear-log-history");
+  button.disabled = true;
+  try {
+    const result = await api("/logs", { method: "DELETE", body: "{}" });
+    $("#log-settings-note").textContent = `日志已清空：访问统计 ${result.deleted_access_rows} 条、管理员操作 ${result.deleted_audit_rows} 条、Bot 去重记录 ${result.deleted_telegram_update_rows} 条。`;
+    renderLogSettings(result);
+    toast("日志已清空");
+  } catch (error) { $("#log-settings-note").textContent = "清空失败：" + error.message; }
+  finally { button.disabled = false; }
+});
 
 $("#telegram-settings-form").addEventListener("submit", async (event) => {
   event.preventDefault();
@@ -561,20 +608,21 @@ function setDetailHtml(container, data) {
   container.append(element("h3", "设备记录"));
   const activeDevices = (data.devices || []).filter((device) => !device.revoked_at);
   container.append(element("div", "当前活跃设备数：" + activeDevices.length + " / " + Number(member.max_devices || 1), "muted"));
-  container.append(element("div", "设备以 User-Agent 和 Cloudflare 提供的 IP 地理位置识别；满额时仅阻止新设备加载，已登记设备继续可用。", "muted"));
+  container.append(element("div", "设备按 IPv4 /16 网段（IPv6 /64）、地区和浏览器类型合并识别。重复访问以及同一识别组内的设备不会反复占用名额；访问统计另行按小时记录。", "muted"));
   if (!data.devices?.length) container.append(element("div", "暂无设备记录。"));
   for (const device of data.devices || []) {
     const card = element("article", "", "request-card device-card");
     const info = element("div", "", "application-info");
+    const browser = String(device.browser_key || "").split("|").map((part) => part ? part[0].toUpperCase() + part.slice(1) : "").filter(Boolean).join(" · ");
     info.append(element("strong", (device.geo_location || "位置未知") + " · " + (device.ip_address || "IP 未知") + (device.revoked_at ? " · 已移除" : " · 使用中")),
-      element("small", device.user_agent_hint || "未知客户端"),
+      element("small", (browser || "未知浏览器") + " · 识别网段：" + (device.network_bucket || "旧记录待更新")),
       element("small", "首次：" + new Date(device.first_seen).toLocaleString("zh-CN") + " · 最近：" + new Date(device.last_seen).toLocaleString("zh-CN")));
     card.append(info);
     if (!device.revoked_at) {
       const remove = element("button", "移除设备", "mini-button warn");
       remove.type = "button";
       remove.addEventListener("click", async () => {
-        if (!confirm("移除此设备并释放一个名额？该 User-Agent 与地理位置组合的后续请求会被拒绝。")) return;
+        if (!confirm("移除此设备分组并释放一个名额？同一网段、地区和浏览器的后续请求会被拒绝。")) return;
         try {
           await api("/members/" + encodeURIComponent(member.id) + "/devices/" + encodeURIComponent(device.id), { method: "DELETE", body: "{}" });
           await openMember(member.id);
@@ -585,7 +633,7 @@ function setDetailHtml(container, data) {
     }
     container.append(card);
   }
-  const clearDevices = element("button", "清除弱识别记录", "mini-button");
+  const clearDevices = element("button", "清除全部设备登记", "mini-button");
   clearDevices.type = "button";
   clearDevices.addEventListener("click", async () => {
     if (!confirm("删除全部设备识别记录会释放当前名额；之后重新请求的设备会重新登记。继续？")) return;
@@ -596,12 +644,42 @@ function setDetailHtml(container, data) {
     } catch (error) { toast(error.message); }
   });
   container.append(clearDevices);
-  for (const [title, rows] of [["最近使用统计", data.usage], ["会员操作历史", data.events]]) {
+  const dateText = (value) => {
+    if (!value) return "—";
+    const date = new Date(value);
+    return Number.isNaN(date.getTime()) ? "—" : date.toLocaleString("zh-CN");
+  };
+  function detailTable(title, headers, rows, emptyText) {
     container.append(element("h3", title));
-    const pre = element("pre", JSON.stringify(rows, null, 2));
-    pre.className = "token-result";
-    container.append(pre);
+    if (!rows.length) { container.append(element("div", emptyText, "muted")); return; }
+    const wrap = element("div", "", "table-wrap detail-table-wrap");
+    const table = document.createElement("table");
+    table.className = "detail-table";
+    const head = document.createElement("thead");
+    const headerRow = document.createElement("tr");
+    for (const value of headers) headerRow.append(element("th", value));
+    head.append(headerRow);
+    const body = document.createElement("tbody");
+    for (const values of rows) {
+      const row = document.createElement("tr");
+      for (const value of values) row.append(element("td", String(value ?? "—")));
+      body.append(row);
+    }
+    table.append(head, body);
+    wrap.append(table);
+    container.append(wrap);
   }
+  detailTable("最近访问统计", ["资源", "时段", "成功", "拒绝"], (data.usage || []).map((row) => [
+    row.resource_name || row.slug || "未知资源", dateText(String(row.hour || "") + ":00:00Z"), Number(row.allowed_count || 0), Number(row.denied_count || 0),
+  ]), "暂无访问统计。");
+  const actionLabels = {
+    "member.create": "创建会员", "member.update": "更新会员资料", "member.renew": "会员续期",
+    "member.token.rotate": "重置订阅地址", "device.remove": "移除设备", "devices.clear": "清除设备登记",
+    "signup.approve": "批准开通", "signup.reject": "拒绝开通", "telegram.webhook.configure": "绑定 Bot Webhook",
+  };
+  detailTable("管理员操作历史", ["时间", "操作", "操作人", "说明"], (data.events || []).map((row) => [
+    dateText(row.timestamp), actionLabels[row.action] || String(row.action || "").replaceAll(".", " · "), row.actor_id || "管理员", row.change_summary || "—",
+  ]), "暂无管理员操作记录。");
 }
 
 async function openMember(id) {
