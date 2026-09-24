@@ -4,6 +4,7 @@ import {
   setSessionCookie,
 } from "./security.js";
 import { notifyDeviceLimitDecision, notifyMemberProvisioned, reviewRenewal, reviewSignup } from "./telegram.js";
+import { configureTelegramWebhook, getTelegramConfig, saveTelegramConfig } from "./bot-config.js";
 
 const MEMBER_STATUSES = new Set(["pending", "active", "paused", "expired", "revoked"]);
 const RESOURCE_TYPES = new Set(["url", "tv", "json", "repository", "stremio"]);
@@ -354,6 +355,37 @@ export async function adminApi(request, env) {
 
   if (!await hasAdminSession(request, env)) return apiError("ADMIN_AUTH_REQUIRED", 401);
 
+  if (path === "/admin/api/settings/telegram" && method === "GET") {
+    const config = await getTelegramConfig(env, { force: true });
+    return json({
+      bot_token_configured: config.botConfigured,
+      bot_token_source: config.botSource,
+      bot_username: config.botUsername,
+      admin_telegram_ids: config.adminIds.join("\n"),
+      webhook_secret_configured: config.webhookConfigured,
+    }, 200, { "cache-control": "no-store" });
+  }
+  if (path === "/admin/api/settings/telegram" && method === "PUT") {
+    const body = await readJson(request, 8192);
+    if (!body || typeof body.admin_telegram_ids !== "string" || typeof body.bot_token !== "string") return apiError("BOT_SETTINGS_INVALID", 400);
+    const adminIds = [...new Set(body.admin_telegram_ids.split(/[\s,;]+/u).map((value) => value.trim()).filter(Boolean))];
+    const result = await saveTelegramConfig(env, { botToken: body.bot_token.trim(), adminIds });
+    if (result.error) {
+      const status = result.error === "BOT_TOKEN_VERIFY_FAILED" ? 502
+        : result.error === "BOT_ENCRYPTION_UNAVAILABLE" || result.error === "BOT_SETTINGS_SAVE_FAILED" ? 500 : 400;
+      return apiError(result.error, status);
+    }
+    const webhook = result.tokenConfigured ? await configureTelegramWebhook(env) : { error: "BOT_CONFIG_MISSING" };
+    await audit(env.DB, "admin", "telegram.settings.update", "bot", "telegram", "admin_count=" + adminIds.length + "; token_updated=" + (result.tokenUpdated ? "yes" : "no"));
+    return json({
+      ok: true,
+      bot_token_configured: result.tokenConfigured,
+      bot_username: result.botUsername,
+      webhook_configured: webhook.ok === true,
+      webhook_error: webhook.error || "",
+    });
+  }
+
   if (path === "/admin/api/overview" && method === "GET") {
     const [usage, totals, applications, deviceRequests] = await Promise.all([
       env.DB.prepare("SELECT COALESCE(SUM(allowed_count), 0) AS allowed, COALESCE(SUM(denied_count), 0) AS denied FROM usage_hourly WHERE hour >= strftime('%Y-%m-%dT%H', 'now', '-24 hours')").first(),
@@ -365,18 +397,10 @@ export async function adminApi(request, env) {
     return json({ members: totals || {}, applications: applications || { pending: 0 }, device_limit_requests: deviceRequests || { pending: 0 }, requests: usage || { allowed: 0, denied: 0 } });
   }
   if (path === "/admin/api/bot/configure" && method === "POST") {
-    if (!env.TELEGRAM_BOT_TOKEN || !env.TELEGRAM_WEBHOOK_SECRET) return apiError("BOT_CONFIG_MISSING", 409, "Bot token and webhook secret must be configured in Cloudflare first");
-    if (!/^[A-Za-z0-9_-]{1,256}$/u.test(env.TELEGRAM_WEBHOOK_SECRET)) return apiError("WEBHOOK_SECRET_INVALID", 500);
-    const endpoint = "https://api.telegram.org/bot" + env.TELEGRAM_BOT_TOKEN + "/setWebhook";
-    const result = await fetch(endpoint, {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ url: String(env.PUBLIC_BASE_URL || "https://member.example.com").replace(/\/+$/u, "") + "/telegram/webhook", secret_token: env.TELEGRAM_WEBHOOK_SECRET, allowed_updates: ["message", "callback_query"] }),
-    });
-    const payload = await result.json().catch(() => null);
-    if (!result.ok || payload?.ok !== true) return apiError("BOT_WEBHOOK_SETUP_FAILED", 502, "Telegram did not accept the webhook configuration");
+    const result = await configureTelegramWebhook(env);
+    if (result.error) return apiError(result.error, result.error === "BOT_CONFIG_MISSING" ? 409 : 502);
     await audit(env.DB, "admin", "telegram.webhook.configure", "bot", "telegram", "webhook configured");
-    return json({ ok: true, webhook: String(env.PUBLIC_BASE_URL || "https://member.example.com").replace(/\/+$/u, "") + "/telegram/webhook" });
+    return json({ ok: true, webhook: result.webhook });
   }
 
   if (path === "/admin/api/plans" && method === "GET") {

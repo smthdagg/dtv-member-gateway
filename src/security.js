@@ -55,13 +55,15 @@ export async function encryptOpaque(raw, keyValue) {
   return b64url(packed);
 }
 
-export async function decryptToken(ciphertext, keyValue) {
+export async function decryptOpaque(ciphertext, keyValue) {
   const packed = fromB64url(ciphertext);
-  if (packed.length < 29) throw new Error("Invalid encrypted token");
+  if (packed.length < 29) throw new Error("Invalid encrypted value");
   const key = await encryptionKey(keyValue);
   const raw = await crypto.subtle.decrypt({ name: "AES-GCM", iv: packed.slice(0, 12) }, key, packed.slice(12));
   return new TextDecoder().decode(raw);
 }
+
+export const decryptToken = decryptOpaque;
 
 async function hmac(value, secret) {
   if (!secret) throw new Error("SESSION_SECRET is not configured");

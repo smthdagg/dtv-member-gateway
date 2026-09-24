@@ -66,10 +66,9 @@ npm run deploy
 npx wrangler secret put ADMIN_PASSWORD
 npx wrangler secret put SESSION_SECRET
 npx wrangler secret put TOKEN_ENCRYPTION_KEY
-npx wrangler secret put TELEGRAM_BOT_TOKEN
-npx wrangler secret put TELEGRAM_WEBHOOK_SECRET
-npx wrangler secret put ADMIN_TELEGRAM_IDS
 ~~~
+
+后台登录后打开“Bot 设置”，填写 Telegram Bot Token 和一个或多个管理员 Telegram ID。Token 会先通过 Telegram 校验，再以 AES-GCM 加密后保存到 D1；Webhook 密钥由系统生成并加密保存。旧版部署中的 `TELEGRAM_BOT_TOKEN`、`TELEGRAM_WEBHOOK_SECRET`、`ADMIN_TELEGRAM_IDS` Wrangler Secret 可作为初始兼容值，首次保存后台设置后会迁入 D1。后台登录密码、会话密钥和加密密钥仍由 Wrangler Secret 管理。
 
 生成密钥的示例（复制命令生成的值到 Wrangler 的隐藏输入提示中）：
 
@@ -78,7 +77,7 @@ openssl rand -base64 32
 openssl rand -hex 32
 ~~~
 
-SESSION_SECRET 用第一条命令生成；TOKEN_ENCRYPTION_KEY 也使用第一条命令生成；TELEGRAM_WEBHOOK_SECRET 使用第二条命令生成。ADMIN_PASSWORD 由你设置；ADMIN_TELEGRAM_IDS 填 Telegram 数字 ID，多个 ID 用逗号分隔。Bot Token 由 BotFather 提供。设置这些 Secret 会发布新 Worker 版本。完成后访问 /admin 登录，点击“绑定 Telegram Bot”完成 webhook 注册。
+SESSION_SECRET 和 TOKEN_ENCRYPTION_KEY 用第一条命令生成；ADMIN_PASSWORD 由你设置。设置这些 Secret 会发布新 Worker 版本。随后访问 /admin 登录，在“Bot 设置”页面输入 Bot Token 和管理员 Telegram ID；系统会验证 Token、保存加密配置并自动注册 Webhook。
 
 上线时确认 Worker 的故障模式为 Fail closed。Cloudflare Workers Free 在达到每日请求额度后，可配置为绕过 Worker；这套系统必须让受保护路由在超限时返回错误，不能绕过授权。
 
@@ -97,7 +96,7 @@ SESSION_SECRET 用第一条命令生成；TOKEN_ENCRYPTION_KEY 也使用第一�
 5. 会员通过 Bot 获取分发地址、查看资料和设备、移除设备、申请增加设备数或申请续期；设备扩容和续期审核通过后会自动更新会员资料。
 6. 暂停、撤销、到期或轮换 Token 后，之后的新网关请求会立即被拒绝。
 
-后台密码目前为单一共享管理员密码；ADMIN_TELEGRAM_IDS 用于 Bot 管理员身份检查。Bot 申请保存用户提交的微信号和会员号。设备名额按 User-Agent 与 Cloudflare 提供的 IP 地理位置组合计数，同一组合重复访问只占一个名额。达到上限时仅拒绝新的设备标识，已登记设备继续访问；会员移除设备会释放一个名额，Bot 可提交增加设备数申请，管理员批准后自动提高上限（最多 50）。此识别不读取硬件序列号；同一位置、相同 User-Agent 的不同设备可能合并，地理位置或客户端标识变化也可能产生新记录。完整订阅 JSON 保留全部条目，仅把可代理地址替换为会员专属网关地址；嵌套 JSON 地址同样代理，其他响应以流方式透传并支持 Range。
+后台密码目前为单一共享管理员密码，由 Wrangler Secret 管理；Bot 管理员 Telegram ID 可在后台“Bot 设置”中维护。Bot 申请保存用户提交的微信号和会员号。设备名额按 User-Agent 与 Cloudflare 提供的 IP 地理位置组合计数，同一组合重复访问只占一个名额。达到上限时仅拒绝新的设备标识，已登记设备继续访问；会员移除设备会释放一个名额，Bot 可提交增加设备数申请，管理员批准后自动提高上限（最多 50）。此识别不读取硬件序列号；同一位置、相同 User-Agent 的不同设备可能合并，地理位置或客户端标识变化也可能产生新记录。完整订阅 JSON 保留全部条目，仅把可代理地址替换为会员专属网关地址；嵌套 JSON 地址同样代理，其他响应以流方式透传并支持 Range。
 
 ## 尚需上线前确认
 

@@ -1,6 +1,7 @@
 import {
   apiError, audit, decryptToken, issueToken, json, newId, nowIso, readJson, safeEqual,
 } from "./security.js";
+import { getTelegramConfig } from "./bot-config.js";
 
 const encoder = new TextEncoder();
 
@@ -21,7 +22,6 @@ function guestKeyboard() {
 }
 
 async function sendMessage(env, chatId, text, replyMarkup) {
-  if (!env.TELEGRAM_BOT_TOKEN) return false;
   const body = {
     chat_id: chatId,
     text: String(text).slice(0, 3900),
@@ -29,7 +29,9 @@ async function sendMessage(env, chatId, text, replyMarkup) {
   };
   if (replyMarkup) body.reply_markup = replyMarkup;
   try {
-    const response = await fetch("https://api.telegram.org/bot" + env.TELEGRAM_BOT_TOKEN + "/sendMessage", {
+    const config = await getTelegramConfig(env);
+    if (!config.botToken) return false;
+    const response = await fetch("https://api.telegram.org/bot" + config.botToken + "/sendMessage", {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify(body),
@@ -42,12 +44,15 @@ async function sendMessage(env, chatId, text, replyMarkup) {
 }
 
 async function answerCallback(env, callbackId, text = "") {
-  if (!env.TELEGRAM_BOT_TOKEN) return;
-  await fetch("https://api.telegram.org/bot" + env.TELEGRAM_BOT_TOKEN + "/answerCallbackQuery", {
-    method: "POST",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify({ callback_query_id: callbackId, text: String(text).slice(0, 180) }),
-  });
+  try {
+    const config = await getTelegramConfig(env);
+    if (!config.botToken) return;
+    await fetch("https://api.telegram.org/bot" + config.botToken + "/answerCallbackQuery", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ callback_query_id: callbackId, text: String(text).slice(0, 180) }),
+    });
+  } catch {}
 }
 
 async function findMember(db, telegramId) {
@@ -143,12 +148,13 @@ async function linkList(env, db, member) {
   return lines.join("\n");
 }
 
-function adminTelegramIds(env) {
-  return [...new Set(String(env.ADMIN_TELEGRAM_IDS || "").split(",").map((value) => value.trim()).filter((value) => /^\d{5,20}$/u.test(value)))];
+async function adminTelegramIds(env) {
+  return (await getTelegramConfig(env)).adminIds;
 }
 
 async function notifyAdmins(env, text, keyboardMarkup) {
-  await Promise.all(adminTelegramIds(env).map((adminId) => sendMessage(env, adminId, text, keyboardMarkup)));
+  const admins = await adminTelegramIds(env);
+  await Promise.all(admins.map((adminId) => sendMessage(env, adminId, text, keyboardMarkup)));
 }
 
 async function pendingSignup(db, telegramId) {
@@ -158,7 +164,7 @@ async function pendingSignup(db, telegramId) {
 
 async function beginSignup(env, db, user, chatId) {
   const telegramId = String(user.id || "");
-  if (adminTelegramIds(env).includes(telegramId)) {
+  if ((await adminTelegramIds(env)).includes(telegramId)) {
     await sendAdminHome(env, db, chatId);
     return;
   }
@@ -635,7 +641,7 @@ async function handleButton(env, db, callback) {
     return;
   }
   await answerCallback(env, callback.id);
-  const admins = new Set(adminTelegramIds(env));
+  const admins = new Set(await adminTelegramIds(env));
   const signupReview = action.match(/^signup_(approve|reject):([0-9a-f-]{20,40})$/iu);
   const renewalReview = action.match(/^renew_(approve|reject):([0-9a-f-]{20,40})$/iu);
   if (signupReview || renewalReview) {
@@ -833,7 +839,7 @@ async function processUpdate(env, update) {
   const telegramId = String(message.from.id);
   const text = String(message.text || "").trim();
   const chatId = message.chat.id;
-  const isAdmin = adminTelegramIds(env).includes(telegramId);
+  const isAdmin = (await adminTelegramIds(env)).includes(telegramId);
   if ((text === "/start" || text.startsWith("/start ")) && isAdmin) {
     await sendAdminHome(env, db, chatId);
     return;
@@ -901,7 +907,8 @@ async function processUpdate(env, update) {
 }
 
 export async function telegramWebhook(request, env) {
-  if (!env.TELEGRAM_WEBHOOK_SECRET || !safeEqual(request.headers.get("x-telegram-bot-api-secret-token") || "", env.TELEGRAM_WEBHOOK_SECRET)) {
+  const config = await getTelegramConfig(env);
+  if (!config.webhookSecret || !safeEqual(request.headers.get("x-telegram-bot-api-secret-token") || "", config.webhookSecret)) {
     return apiError("WEBHOOK_SECRET_INVALID", 403);
   }
   const update = await readJson(request, 256_000);

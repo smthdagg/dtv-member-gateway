@@ -49,6 +49,10 @@ button { color: inherit; }
 .intro-note { display: inline-flex; align-items: center; gap: 10px; margin-top: 36px; padding: 12px 15px; border: 1px solid var(--line); border-radius: 12px; color: #c4c2d2; font-size: 12px; background: #ffffff05; }
 .spark { color: var(--mint); font-size: 16px; }
 .card { border: 1px solid var(--line); border-radius: 17px; background: linear-gradient(145deg, #1c1d29e8, #13151fe8); box-shadow: 0 22px 80px #05060b70; }
+.settings-card { padding: 20px; }
+.settings-status { display: grid; gap: 7px; padding: 3px 2px 18px; margin-bottom: 2px; border-bottom: 1px solid var(--line); }
+.settings-status strong { color: #dcd7f3; font-size: 13px; font-weight: 600; }
+.settings-note { margin: 0; color: var(--muted); font-size: 11px; line-height: 1.7; }
 .login-card { width: 100%; max-width: 385px; padding: 32px; justify-self: end; }
 .login-card h2 { font-size: 23px; margin: 8px 0 26px; letter-spacing: -.035em; }
 label { display: flex; flex-direction: column; gap: 8px; color: #c4c3d2; font-size: 12px; font-weight: 500; }

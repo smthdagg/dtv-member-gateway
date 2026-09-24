@@ -36,7 +36,7 @@
     <section id="app-view" class="hidden">
       <div class="welcome">
         <div><div class="eyebrow">CONTROL CENTER</div><h1>会员授权管理</h1><p>套餐到期、资源权限和访问地址在此维护。</p></div>
-        <div class="row-actions"><button id="configure-bot" class="button soft" type="button">绑定 Telegram Bot</button><a class="button soft" href="/healthz" target="_blank" rel="noreferrer">服务状态 <span>↗</span></a></div>
+        <div class="row-actions"><button id="open-bot-settings" class="button soft" type="button">Bot 设置</button><a class="button soft" href="/healthz" target="_blank" rel="noreferrer">服务状态 <span>↗</span></a></div>
       </div>
       <section id="overview" class="metrics">
         <article class="metric-card"><span>有效会员</span><strong id="metric-active">—</strong><small>未到期的有效账户</small></article>
@@ -55,6 +55,7 @@
         <button class="tab" data-tab="plans">套餐</button>
         <button class="tab" data-tab="renewals">续期申请 <b id="renewal-count" class="count-badge hidden">0</b></button>
         <button class="tab" data-tab="device-requests">设备扩容 <b id="device-request-count" class="count-badge hidden">0</b></button>
+        <button class="tab" data-tab="bot-settings">Bot 设置</button>
         <button class="tab" data-tab="audit">审计记录</button>
       </nav>
 
@@ -137,6 +138,19 @@
           <div class="row-actions"><button id="device-requests-approve" class="button primary" type="button" disabled>批准所选</button><button id="device-requests-reject" class="button danger" type="button" disabled>拒绝所选</button></div>
         </div>
         <div id="device-requests-list" class="stack-list"></div>
+      </section>
+
+      <section id="panel-bot-settings" class="panel">
+        <div class="panel-heading"><div><h2>Telegram Bot 设置</h2><p>在后台更新 Bot Token 和可管理此 Bot 的 Telegram 管理员 ID。</p></div></div>
+        <div class="card settings-card">
+          <div class="settings-status"><span class="section-kicker">当前状态</span><strong id="bot-config-status">正在读取配置…</strong></div>
+          <form id="telegram-settings-form" class="form-grid">
+            <label class="wide">Bot Token<input id="bot-token-input" name="bot_token" type="password" autocomplete="new-password" spellcheck="false" placeholder="留空表示保持当前 Token"><small>新 Token 会先向 Telegram 校验；保存后加密写入数据库，页面不会再次显示。</small></label>
+            <label class="wide">管理员 Telegram ID<input id="bot-admin-ids" name="admin_telegram_ids" required placeholder="例如 123456789, 987654321"><small>可填写多个数字 ID，用逗号或空格分隔。修改后会用于 Bot 管理员识别和审核通知；请保留自己的 ID，以继续使用 Bot 管理菜单。</small></label>
+            <div class="wide form-submit"><button id="save-telegram-settings" class="button primary" type="submit">保存配置并连接 Bot</button><button id="configure-bot" class="button soft" type="button">重新绑定 Webhook</button><span id="telegram-settings-note" class="muted"></span></div>
+            <p class="wide settings-note">Webhook 密钥会自动生成并加密保存。后台登录密码、会话密钥和数据库加密密钥仍由 Cloudflare 保管。</p>
+          </form>
+        </div>
       </section>
 
       <section id="panel-audit" class="panel">

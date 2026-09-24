@@ -83,8 +83,11 @@ $$(".tab").forEach((button) => button.addEventListener("click", () => {
   if (button.dataset.tab === "applications") loadApplications();
   if (button.dataset.tab === "renewals") loadRenewals();
   if (button.dataset.tab === "device-requests") loadDeviceLimitRequests();
+  if (button.dataset.tab === "bot-settings") loadTelegramSettings();
   if (button.dataset.tab === "audit") loadAudit();
 }));
+
+$("#open-bot-settings").addEventListener("click", () => $('[data-tab="bot-settings"]').click());
 
 async function loadAll() {
   try {
@@ -198,11 +201,61 @@ $("#applications-approve").addEventListener("click", () => processApplications($
 $("#applications-reject").addEventListener("click", () => processApplications($$("[data-application-id]:checked").map((input) => input.dataset.applicationId), "rejected"));
 $("#refresh-applications").addEventListener("click", () => loadApplications());
 
+function renderTelegramSettings(settings) {
+  const source = settings.bot_token_source === "database" ? "后台加密保存" : settings.bot_token_source === "cloudflare" ? "Cloudflare 初始配置" : "尚未设置";
+  const bot = settings.bot_username ? " · @" + settings.bot_username : "";
+  const webhook = settings.webhook_secret_configured ? "Webhook 密钥已就绪" : "Webhook 密钥待生成";
+  $("#bot-config-status").textContent = (settings.bot_token_configured ? "Bot Token 已配置" : "Bot Token 未配置") + bot + " · " + source + " · " + webhook;
+  $("#bot-admin-ids").value = String(settings.admin_telegram_ids || "").replaceAll("\n", ", ");
+}
+
+async function loadTelegramSettings() {
+  try { renderTelegramSettings(await api("/settings/telegram")); }
+  catch (error) { $("#bot-config-status").textContent = "读取 Bot 配置失败：" + error.message; }
+}
+
+$("#telegram-settings-form").addEventListener("submit", async (event) => {
+  event.preventDefault();
+  const button = $("#save-telegram-settings");
+  const note = $("#telegram-settings-note");
+  button.disabled = true;
+  note.textContent = "正在校验并保存…";
+  try {
+    const result = await api("/settings/telegram", {
+      method: "PUT",
+      body: JSON.stringify({ bot_token: $("#bot-token-input").value, admin_telegram_ids: $("#bot-admin-ids").value }),
+    });
+    $("#bot-token-input").value = "";
+    if (result.webhook_configured) {
+      note.textContent = "";
+      toast("Bot 配置已保存并连接" + (result.bot_username ? "（@" + result.bot_username + "）" : ""));
+    } else if (!result.bot_token_configured) {
+      note.textContent = "管理员 ID 已保存；请填写有效 Bot Token 后连接 Bot。";
+    } else {
+      note.textContent = "配置已保存，但 Webhook 未连接。可点击“重新绑定 Webhook”重试。";
+    }
+    await loadTelegramSettings();
+    if (result.webhook_configured) note.textContent = "Bot 配置已保存，Webhook 已连接。";
+  } catch (error) {
+    const messages = {
+      BOT_TOKEN_INVALID: "Bot Token 格式不正确。",
+      BOT_TOKEN_REJECTED: "Telegram 未接受这个 Bot Token，请检查后重试。",
+      BOT_TOKEN_VERIFY_FAILED: "无法连接 Telegram 验证 Token；配置未保存。",
+      ADMIN_TELEGRAM_IDS_INVALID: "请填写至少一个有效的数字管理员 ID。",
+      BOT_ENCRYPTION_UNAVAILABLE: "加密密钥不可用，配置未保存。",
+      BOT_SETTINGS_SAVE_FAILED: "配置保存失败，请重试。",
+    };
+    note.textContent = messages[error.message] || error.message;
+  } finally {
+    button.disabled = false;
+  }
+});
+
 $("#configure-bot").addEventListener("click", async () => {
-  if (!confirm("使用当前 Cloudflare Bot 密钥，将当前管理域名的 /telegram/webhook 注册为 Telegram Bot 的接收地址？")) return;
   try {
     await api("/bot/configure", { method: "POST", body: "{}" });
-    toast("Telegram Bot 已连接");
+    toast("Telegram Bot Webhook 已重新绑定");
+    await loadTelegramSettings();
   } catch (error) { toast(error.message); }
 });
 
