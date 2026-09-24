@@ -1,0 +1,172 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="referrer" content="no-referrer">
+  <title>DTV 会员授权管理</title>
+  <link rel="stylesheet" href="/style.css">
+  <script type="module" src="/app.js"></script>
+</head>
+<body>
+  <div class="ambient ambient-a"></div><div class="ambient ambient-b"></div>
+  <main class="shell">
+    <header class="topbar">
+      <a class="brand" href="/admin" aria-label="DuoTV 会员授权管理首页"><img class="brand-logo" src="/logo.png" alt="DuoTV"></a>
+      <div class="top-actions"><span id="connection" class="status-pill"><i></i>连接中</span><button id="logout" class="button ghost hidden">退出</button></div>
+    </header>
+
+    <section id="login-view" class="login-layout">
+      <div class="intro">
+        <div class="eyebrow">MEMBER ACCESS CONTROL</div>
+        <h1>管理会员订阅<br><span>资源地址</span></h1>
+        <p>在一个地方管理套餐、会员和订阅资源。每位会员使用独立地址，权限变更即时生效。</p>
+        <div class="intro-note"><span class="spark">✦</span><span>地址是访问凭证。请仅通过会员私聊发送。</span></div>
+      </div>
+      <form id="login-form" class="card login-card">
+        <div class="section-kicker">管理员入口</div><h2>登录管理后台</h2>
+        <label for="password">后台密码</label>
+        <input id="password" type="password" autocomplete="current-password" required placeholder="输入管理员密码">
+        <button class="button primary full" type="submit">安全登录 <span>→</span></button>
+        <p id="login-error" class="form-error"></p>
+        <div class="login-foot"><span class="lock">▣</span> HTTPS 加密连接 · 会话 12 小时后失效</div>
+      </form>
+    </section>
+
+    <section id="app-view" class="hidden">
+      <div class="welcome">
+        <div><div class="eyebrow">CONTROL CENTER</div><h1>会员授权管理</h1><p>套餐到期、资源权限和访问地址在此维护。</p></div>
+        <div class="row-actions"><button id="configure-bot" class="button soft" type="button">绑定 Telegram Bot</button><a class="button soft" href="/healthz" target="_blank" rel="noreferrer">服务状态 <span>↗</span></a></div>
+      </div>
+      <section id="overview" class="metrics">
+        <article class="metric-card"><span>有效会员</span><strong id="metric-active">—</strong><small>未到期的有效账户</small></article>
+        <article class="metric-card"><span>待审核申请</span><strong id="metric-applications">—</strong><small>Bot 自动收集的开通申请</small></article>
+        <article class="metric-card"><span>待开通会员</span><strong id="metric-pending">—</strong><small>等待运营处理</small></article>
+        <article class="metric-card"><span>暂停会员</span><strong id="metric-paused">—</strong><small>当前暂停访问</small></article>
+        <article class="metric-card"><span>已到期</span><strong id="metric-expired">—</strong><small>状态到期或有效期已过</small></article>
+        <article class="metric-card"><span>近 24 小时授权请求</span><strong id="metric-allowed">—</strong><small>UTC 小时汇总</small></article>
+        <article class="metric-card"><span>近 24 小时拒绝请求</span><strong id="metric-denied">—</strong><small>状态、权限或上游错误</small></article>
+      </section>
+
+      <nav class="tabs" aria-label="管理区">
+        <button class="tab" data-tab="applications">开通申请 <b id="application-count" class="count-badge hidden">0</b></button>
+        <button class="tab active" data-tab="members">会员</button>
+        <button class="tab" data-tab="resources">资源</button>
+        <button class="tab" data-tab="plans">套餐</button>
+        <button class="tab" data-tab="renewals">续期申请 <b id="renewal-count" class="count-badge hidden">0</b></button>
+        <button class="tab" data-tab="device-requests">设备扩容 <b id="device-request-count" class="count-badge hidden">0</b></button>
+        <button class="tab" data-tab="audit">审计记录</button>
+      </nav>
+
+      <section id="panel-applications" class="panel">
+        <div class="panel-heading"><div><h2>会员开通申请</h2><p>Bot 自动收集微信号、会员号和 Telegram 资料。可勾选多条后一次审核。</p></div><button id="refresh-applications" class="button soft" type="button">刷新 <span>↻</span></button></div>
+        <div class="toolbar application-toolbar">
+          <label class="check-label"><input id="applications-select-all" type="checkbox"> 全选当前申请</label>
+          <div class="row-actions"><button id="applications-approve" class="button primary" type="button" disabled>批准所选</button><button id="applications-reject" class="button danger" type="button" disabled>拒绝所选</button></div>
+        </div>
+        <div id="applications-list" class="stack-list"></div>
+      </section>
+
+      <section id="panel-members" class="panel active">
+        <div class="panel-heading"><div><h2>会员</h2><p>按 Telegram ID、名称或 Token 摘要尾段查找。</p></div><button id="refresh-members" class="button soft">刷新 <span>↻</span></button></div>
+        <div class="toolbar"><div class="search-box"><span>⌕</span><input id="member-search" placeholder="搜索会员…"></div><span id="member-count" class="muted">0 位会员</span></div>
+        <div class="table-wrap"><table><thead><tr><th>会员</th><th>Telegram ID</th><th>套餐</th><th>设备</th><th>状态</th><th>到期时间</th><th>Token 尾段</th><th>操作</th></tr></thead><tbody id="members-body"></tbody></table><div id="members-empty" class="empty hidden">没有找到会员记录。</div></div>
+        <details class="form-drawer"><summary>＋ 添加会员</summary>
+          <form id="member-form" class="form-grid">
+            <label>Telegram User ID<input name="telegram_user_id" required inputmode="numeric" placeholder="例如 123456789"></label>
+            <label>显示名称<input name="display_name" placeholder="会员称呼"></label>
+            <label>Telegram 用户名<input name="telegram_username" placeholder="不含 @"></label>
+            <label>微信号<input name="wechat_id" placeholder="可留空"></label>
+            <label>会员号<input name="member_number" placeholder="可留空"></label>
+            <label>套餐<select name="plan_id" required></select></label>
+            <label>初始状态<select name="status"><option value="active">有效</option><option value="pending">待开通</option></select></label>
+            <label class="wide">备注<input name="notes" maxlength="500" placeholder="仅管理员可见"></label>
+            <div class="wide form-submit"><button class="button primary" type="submit">创建会员并签发地址</button><span id="member-form-note" class="muted"></span></div>
+          </form>
+        </details>
+        <details class="form-drawer"><summary>⇧ 批量导入 CSV</summary>
+          <div class="form-grid">
+            <label class="wide">CSV 文件<input id="member-import-file" type="file" accept=".csv,text/csv"></label>
+            <small class="wide">列名：telegram_user_id、display_name、telegram_username、wechat_id、member_number、plan_name、notes。每批最多 200 人。套餐名需与后台完全一致；用户启动过 Bot 时，导入后会自动私聊分发地址。</small>
+            <div class="wide form-submit"><button id="member-import" class="button soft" type="button">导入会员</button><span id="member-import-note" class="muted"></span></div>
+          </div>
+        </details>
+      </section>
+
+      <section id="panel-resources" class="panel">
+        <div class="panel-heading"><div><h2>资源</h2><p>同步时保留完整上游快照；客户端响应保留所有数据项、字段、有效值和顺序，标准化注释格式，并只把可代理的 URL 改写为会员专属地址。二级文件与媒体按原响应透传，并支持 Range。</p></div><button id="sync-all-resources" class="button soft" type="button">读取并同步全部 JSON</button></div>
+        <form id="resource-form" class="card form-grid resource-form">
+          <input name="id" type="hidden">
+          <label>资源名称<input name="name" required placeholder="例如 主线路 TV"></label>
+          <label>地址标识 slug<input name="slug" required pattern="[a-z0-9][a-z0-9._-]{1,39}" placeholder="例如 tv-main"></label>
+          <label>资源类型<select name="type"><option value="tv">TV 订阅</option><option value="json">JSON 配置</option><option value="repository">仓库地址</option><option value="stremio">Telegram-Stremio</option><option value="url">普通 URL</option></select></label>
+          <label>返回方式<select name="delivery_mode"><option value="proxy">代理返回（隐藏上游）</option><option value="redirect">跳转（会暴露上游）</option></select></label>
+          <label class="wide">上游 HTTPS 地址<input name="upstream_url" type="url" required placeholder="https://server.example/subscription"></label>
+          <label class="wide">允许的上游域名<input name="allowed_hosts" required placeholder="server.example, cdn.example"><small>只允许这些 HTTPS 主机及同名单内的重定向。</small></label>
+          <label class="wide">JSON 中需代理的地址字段<input name="rewrite_fields" placeholder="url, sourceUrl"><small>不筛除列表项或修改其他字段，只改写真正的 URL 以隐藏上游。原始快照保留上游注释；客户端 JSON 响应移除注释语法以兼容标准解析器，并保留所有数据和普通字符串值。</small></label>
+          <label>最大响应大小（字节）<input name="max_response_bytes" type="number" min="1024" max="10485760" value="2097152"></label>
+          <label class="check-label"><input name="enabled" type="checkbox" checked>启用资源</label>
+          <div class="wide form-submit"><button class="button primary" type="submit">保存资源</button><button id="reset-resource-form" class="button ghost" type="button">清空</button><span id="resource-form-note" class="muted"></span></div>
+        </form>
+        <div class="table-wrap"><table><thead><tr><th>资源</th><th>类型</th><th>slug</th><th>状态</th><th>数据同步</th><th>套餐</th><th>操作</th></tr></thead><tbody id="resources-body"></tbody></table></div>
+      </section>
+
+      <section id="panel-plans" class="panel">
+        <div class="panel-heading"><div><h2>套餐</h2><p>每个套餐设置有效天数、设备提示上限和资源集合。</p></div></div>
+        <form id="plan-form" class="card form-grid">
+          <input name="id" type="hidden">
+          <label>套餐名称<input name="name" required placeholder="例如 月度会员"></label>
+          <label>有效天数<input name="duration_days" type="number" min="1" max="3650" value="30" required></label>
+          <label>设备上限<input name="default_max_devices" type="number" min="1" max="50" value="1" required></label>
+          <label class="check-label"><input name="enabled" type="checkbox" checked>启用套餐</label>
+          <fieldset class="wide resource-checks"><legend>可访问资源</legend><div id="plan-resource-options" class="check-list"></div></fieldset>
+          <div class="wide form-submit"><button class="button primary" type="submit">保存套餐</button><button id="reset-plan-form" class="button ghost" type="button">清空</button><span id="plan-form-note" class="muted"></span></div>
+        </form>
+        <div id="plans-list" class="plan-list"></div>
+      </section>
+
+      <section id="panel-renewals" class="panel">
+        <div class="panel-heading"><div><h2>续期申请</h2><p>会员通过 Bot 提交的申请需要人工审核。</p></div></div>
+        <div id="renewals-list" class="stack-list"></div>
+      </section>
+
+      <section id="panel-device-requests" class="panel">
+        <div class="panel-heading"><div><h2>设备扩容申请</h2><p>会员从 Bot 申请增加设备名额。批准后会自动增加该会员的设备上限。</p></div><button id="refresh-device-requests" class="button soft" type="button">刷新 <span>↻</span></button></div>
+        <div class="toolbar application-toolbar">
+          <label class="check-label"><input id="device-requests-select-all" type="checkbox"> 全选当前申请</label>
+          <div class="row-actions"><button id="device-requests-approve" class="button primary" type="button" disabled>批准所选</button><button id="device-requests-reject" class="button danger" type="button" disabled>拒绝所选</button></div>
+        </div>
+        <div id="device-requests-list" class="stack-list"></div>
+      </section>
+
+      <section id="panel-audit" class="panel">
+        <div class="panel-heading"><div><h2>审计记录</h2><p>保留关键会员、套餐、资源和 Token 操作。</p></div></div>
+        <div class="table-wrap"><table><thead><tr><th>时间</th><th>操作人</th><th>操作</th><th>对象</th><th>摘要</th></tr></thead><tbody id="audit-body"></tbody></table></div>
+      </section>
+      <footer class="footer"><span>DTV 会员授权系统</span><span>Token 仅显示摘要 · 授权失败时默认拒绝</span></footer>
+    </section>
+  </main>
+
+  <dialog id="member-dialog" class="detail-dialog">
+    <div class="dialog-head"><div><div class="eyebrow">MEMBER PROFILE</div><h2>会员详情</h2></div><button class="icon-button" data-close-dialog aria-label="关闭">×</button></div>
+    <div id="member-detail" class="detail-content"></div>
+    <form id="edit-member-form" class="form-grid compact">
+      <input name="id" type="hidden">
+      <label>状态<select name="status"><option value="pending">待开通</option><option value="active">有效</option><option value="paused">暂停</option><option value="expired">到期</option><option value="revoked">撤销</option></select></label>
+      <label>套餐<select name="plan_id"></select></label>
+      <label>到期时间（UTC）<input name="expires_at" type="datetime-local"></label>
+      <label>设备上限<input name="max_devices" type="number" min="1" max="50"></label>
+      <label>微信号<input name="wechat_id" maxlength="100"></label>
+      <label>会员号<input name="member_number" maxlength="100"></label>
+      <label class="wide">备注<input name="notes" maxlength="500"></label>
+      <div class="wide form-submit"><button class="button primary" type="submit">保存会员</button><button id="rotate-token" class="button danger" type="button">重置地址</button></div>
+    </form>
+    <div class="renew-row">
+      <label>续期计算方式<select id="renew-mode"><option value="from_expiry">从当前到期日续期</option><option value="from_now">从现在开始续期</option></select><small id="renew-preview">选择套餐后显示新的到期时间。</small></label>
+      <button id="renew-member" class="button soft" type="button">续期并延长</button>
+    </div>
+    <pre id="token-result" class="token-result hidden"></pre>
+  </dialog>
+  <div id="toast" role="status" class="toast"></div>
+</body>
+</html>

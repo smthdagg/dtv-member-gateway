@@ -1,0 +1,17 @@
+{
+  "name": "dtv-member-gateway",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "wrangler dev",
+    "prepare:ui": "node scripts/embed-ui.mjs",
+    "deploy": "npm run prepare:ui && wrangler deploy",
+    "db:create": "wrangler d1 create dtv-member-auth",
+    "db:migrate": "wrangler d1 migrations apply dtv-member-auth",
+    "db:seed": "wrangler d1 execute dtv-member-auth --remote --file migrations/0002_seed_initial_catalog.sql"
+  },
+  "devDependencies": {
+    "wrangler": "^4.36.0"
+  }
+}

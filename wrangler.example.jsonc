@@ -1,0 +1,48 @@
+{
+  "name": "dtv-member-gateway",
+  "main": "src/index.js",
+  "compatibility_date": "2026-09-24",
+  "routes": [
+    {
+      "pattern": "member.example.com",
+      "custom_domain": true
+    }
+  ],
+  "ratelimits": [
+    {
+      "name": "MEMBER_LIMITER",
+      "namespace_id": "1001001",
+      "simple": {
+        "limit": 120,
+        "period": 60
+      }
+    },
+    {
+      "name": "ADMIN_LOGIN_LIMITER",
+      "namespace_id": "1001002",
+      "simple": {
+        "limit": 5,
+        "period": 60
+      }
+    }
+  ],
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "dtv-member-auth",
+      "database_id": "REPLACE_WITH_YOUR_D1_DATABASE_ID",
+      "migrations_dir": "migrations"
+    }
+  ],
+  "vars": {
+    "PUBLIC_BASE_URL": "https://member.example.com",
+    "PUBLIC_BASE_URLS": "https://member.example.com",
+    "MAX_UPSTREAM_BYTES": "2097152",
+    "SESSION_TTL_HOURS": "12",
+    "USAGE_RETENTION_DAYS": "90",
+    "DISPLAY_TIME_ZONE": "Asia/Singapore"
+  },
+  "triggers": {
+    "crons": ["17 3 * * *"]
+  }
+}
