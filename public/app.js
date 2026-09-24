@@ -29,7 +29,9 @@ async function api(path, options = {}) {
   const payload = await response.json().catch(() => ({}));
   if (!response.ok) {
     if (response.status === 401 && path !== "/login") showAuthenticated(false);
-    throw new Error(payload?.error?.message || payload?.error?.code || "请求失败");
+    const errorCode = payload?.error?.code;
+    const message = errorCode === "ADMIN_AUTH_REQUIRED" ? "管理员登录已失效，请重新登录。" : payload?.error?.message || errorCode || "请求失败";
+    throw new Error(message);
   }
   return payload;
 }

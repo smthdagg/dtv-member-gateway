@@ -1,7 +1,7 @@
 import {
   apiError, audit, clearSessionCookie, hasAdminSession, isSameOrigin, issueToken,
   json, makeSessionCookie, newId, nowIso, parseJsonList, parseJsonWithComments, readJson, safeEqual,
-  setSessionCookie,
+  setSessionCookie, sessionTtlSeconds,
 } from "./security.js";
 import { notifyDeviceLimitDecision, notifyMemberProvisioned, reviewRenewal, reviewSignup } from "./telegram.js";
 import { configureTelegramWebhook, getTelegramConfig, saveTelegramConfig } from "./bot-config.js";
@@ -355,12 +355,10 @@ export async function adminApi(request, env) {
   if (["POST", "PUT", "PATCH", "DELETE"].includes(method) && !isSameOrigin(request)) return apiError("ORIGIN_REQUIRED", 403);
 
   if (path === "/admin/api/login" && method === "POST") {
-    const limited = await env.ADMIN_LOGIN_LIMITER.limit({ key: request.headers.get("cf-connecting-ip") || "unknown" });
-    if (!limited.success) return apiError("LOGIN_RATE_LIMITED", 429);
     const body = await readJson(request, 4096);
     if (!body || typeof body.password !== "string") return apiError("INVALID_REQUEST", 400);
     if (!env.ADMIN_PASSWORD || !safeEqual(body.password, env.ADMIN_PASSWORD)) return apiError("LOGIN_FAILED", 401);
-    return json({ ok: true }, 200, { "set-cookie": setSessionCookie(await makeSessionCookie(env)), "cache-control": "no-store" });
+    return json({ ok: true }, 200, { "set-cookie": setSessionCookie(await makeSessionCookie(env), sessionTtlSeconds(env)), "cache-control": "no-store" });
   }
   if (path === "/admin/api/logout" && method === "POST") {
     return json({ ok: true }, 200, { "set-cookie": clearSessionCookie(), "cache-control": "no-store" });
@@ -369,7 +367,7 @@ export async function adminApi(request, env) {
     return json({ authenticated: await hasAdminSession(request, env) }, 200, { "cache-control": "no-store" });
   }
 
-  if (!await hasAdminSession(request, env)) return apiError("ADMIN_AUTH_REQUIRED", 401);
+  if (!await hasAdminSession(request, env)) return apiError("ADMIN_AUTH_REQUIRED", 401, "管理员登录已失效，请重新登录");
 
   if (path === "/admin/api/settings/telegram" && method === "GET") {
     const config = await getTelegramConfig(env, { force: true });

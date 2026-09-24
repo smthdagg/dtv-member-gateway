@@ -70,6 +70,8 @@ npx wrangler secret put TOKEN_ENCRYPTION_KEY
 
 后台登录后打开“Bot 设置”，填写 Telegram Bot Token 和一个或多个管理员 Telegram ID。Token 会先通过 Telegram 校验，再以 AES-GCM 加密后保存到 D1；Webhook 密钥由系统生成并加密保存。旧版部署中的 `TELEGRAM_BOT_TOKEN`、`TELEGRAM_WEBHOOK_SECRET`、`ADMIN_TELEGRAM_IDS` Wrangler Secret 可作为初始兼容值，首次保存后台设置后会迁入 D1。后台登录密码、会话密钥和加密密钥仍由 Wrangler Secret 管理。
 
+管理员登录不按 IP 限流；每个浏览器会话有效 30 天，签名会话不绑定 IP 或单一设备，因此可以在多个 IP 和设备同时登录。管理操作仍需管理员密码建立会话。
+
 生成密钥的示例（复制命令生成的值到 Wrangler 的隐藏输入提示中）：
 
 ~~~sh

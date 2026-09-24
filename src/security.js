@@ -80,8 +80,14 @@ function cookies(request) {
   return result;
 }
 
+export function sessionTtlSeconds(env) {
+  const configuredHours = Number(env.SESSION_TTL_HOURS || 720);
+  const hours = Number.isFinite(configuredHours) ? Math.max(1, Math.min(8760, configuredHours)) : 720;
+  return hours * 60 * 60;
+}
+
 export async function makeSessionCookie(env) {
-  const ttl = Math.max(1, Number(env.SESSION_TTL_HOURS || 12)) * 60 * 60;
+  const ttl = sessionTtlSeconds(env);
   const payload = b64url(encoder.encode(JSON.stringify({ exp: Math.floor(Date.now() / 1000) + ttl })));
   return `${payload}.${b64url(await hmac(payload, env.SESSION_SECRET))}`;
 }
@@ -101,8 +107,8 @@ export async function hasAdminSession(request, env) {
   }
 }
 
-export function setSessionCookie(value) {
-  return `dtv_admin=${value}; Path=/admin; HttpOnly; Secure; SameSite=Strict; Max-Age=43200`;
+export function setSessionCookie(value, maxAgeSeconds = 30 * 86_400) {
+  return `dtv_admin=${value}; Path=/admin; HttpOnly; Secure; SameSite=Strict; Max-Age=${maxAgeSeconds}`;
 }
 
 export function clearSessionCookie() {

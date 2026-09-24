@@ -16,14 +16,6 @@
         "limit": 120,
         "period": 60
       }
-    },
-    {
-      "name": "ADMIN_LOGIN_LIMITER",
-      "namespace_id": "1001002",
-      "simple": {
-        "limit": 5,
-        "period": 60
-      }
     }
   ],
   "d1_databases": [
@@ -38,7 +30,7 @@
     "PUBLIC_BASE_URL": "https://member.example.com",
     "PUBLIC_BASE_URLS": "https://member.example.com",
     "MAX_UPSTREAM_BYTES": "2097152",
-    "SESSION_TTL_HOURS": "12",
+    "SESSION_TTL_HOURS": "720",
     "USAGE_RETENTION_DAYS": "90",
     "DISPLAY_TIME_ZONE": "Asia/Singapore"
   },
