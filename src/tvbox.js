@@ -1,12 +1,10 @@
-import { parseJsonList, parseJsonWithComments, sha256Hex } from "./security.js";
+import { sha256Hex } from "./security.js";
 import { responseHeaders, error } from "./http.js";
 import { noteWeakDevice } from "./devices.js";
 import { rewriteJsonText, gatewayOrigin } from "./rewrite.js";
-import { loadBlockedApis } from "./sync.js";
 import { MEMBER_JS } from "./ui.js";
 
 const TOKEN_PATTERN = /^[A-Za-z0-9_-]{42,48}$/u;
-const AGGREGATE_MAX_BYTES = 6_291_456;
 
 const MEMBER_STATUSES_ZH = {
   active: "生效中",
@@ -28,12 +26,14 @@ function memberUsable(lookup) {
     lookup.expires_at && Date.parse(lookup.expires_at) > Date.now();
 }
 
-async function loadPlanJsonResources(db, planId, includeAll = 0) {
-  const query = includeAll
-    ? "SELECT r.id, r.slug, r.name, r.upstream_url, r.allowed_hosts, r.rewrite_fields, r.content_hash, s.content_json, s.synced_at, s.url_count FROM resources r LEFT JOIN resource_snapshots s ON s.resource_id = r.id WHERE r.enabled = 1 AND r.type = 'json' ORDER BY r.created_at ASC, r.slug ASC"
-    : "SELECT r.id, r.slug, r.name, r.upstream_url, r.allowed_hosts, r.rewrite_fields, r.content_hash, s.content_json, s.synced_at, s.url_count FROM resources r JOIN plan_resources pr ON pr.resource_id = r.id AND pr.plan_id = ? LEFT JOIN resource_snapshots s ON s.resource_id = r.id WHERE r.enabled = 1 AND r.type = 'json' AND r.last_sync_error = '' ORDER BY r.created_at ASC, r.slug ASC";
-  const result = includeAll ? await db.prepare(query).all() : await db.prepare(query).bind(planId).all();
-  return (result.results || []).filter((row) => typeof row.content_json === "string" && row.content_json.length > 0);
+// 会员可见的仓清单：启用 + 类型 json + 最近同步成功（上游当前可达）+ 有快照
+async function loadPlanWarehouseMeta(db, planId, includeAll = 0) {
+  const base = "SELECT r.slug, r.name FROM resources r JOIN resource_snapshots s ON s.resource_id = r.id WHERE r.enabled = 1 AND r.type = 'json' AND r.last_sync_error = ''";
+  const tail = " ORDER BY r.created_at ASC, r.slug ASC";
+  const result = includeAll
+    ? await db.prepare(base + tail).all()
+    : await db.prepare(base + " AND EXISTS (SELECT 1 FROM plan_resources pr WHERE pr.plan_id = ? AND pr.resource_id = r.id)" + tail).bind(planId).all();
+  return result.results || [];
 }
 
 function isPermanentExpiry(value) {
@@ -71,65 +71,6 @@ function buildMultiWarehouse(resources, origin, token, altOrigin = "") {
   }, null, 2);
 }
 
-async function buildMergedWarehouse(request, env, resources, origin, token, blockedApis) {
-  const merged = { sites: [], lives: [], parses: [] };
-  const usedSiteNames = new Set();
-  const usedParseNames = new Set();
-  const seenSiteSignatures = new Set();
-  let usedBytes = 0;
-  for (const resource of resources) {
-    const fields = new Set(parseJsonList(resource.rewrite_fields));
-    const allowedHosts = parseJsonList(resource.allowed_hosts).map((host) => String(host).toLowerCase());
-    const prefix = `${origin}/${token}/${resource.slug}`;
-    let text;
-    try {
-      text = await rewriteJsonText(resource.content_json, fields, new URL(resource.upstream_url), prefix, allowedHosts, env);
-    } catch {
-      continue;
-    }
-    let value;
-    try { value = parseJsonWithComments(text); } catch { continue; }
-    if (!value || typeof value !== "object" || Array.isArray(value)) continue;
-    if (!merged.spider && typeof value.spider === "string" && value.spider) merged.spider = value.spider;
-    if (!merged.wallpaper && typeof value.wallpaper === "string" && value.wallpaper) merged.wallpaper = value.wallpaper;
-    const siteList = Array.isArray(value.sites) ? value.sites : [];
-    for (let index = 0; index < siteList.length; index++) {
-      const site = siteList[index];
-      if (!site || typeof site !== "object") continue;
-      const signature = [String(site.api || "").trim(), String(site.name || "").trim()].join("|");
-      if (signature !== "|" && seenSiteSignatures.has(signature)) continue;
-      const siteApi = String(site.api || "").trim();
-      if (/^https?:\/\//iu.test(siteApi) && blockedApis?.has(siteApi)) continue;
-      if (signature !== "|") seenSiteSignatures.add(signature);
-      const originalName = String(site.name || "").trim();
-      let name = originalName;
-      if (name && usedSiteNames.has(name)) name = `${name} · ${resource.name || resource.slug}`;
-      if (name) usedSiteNames.add(name);
-      merged.sites.push({
-        ...site,
-        key: `${resource.slug}:${String(site.key || index)}`,
-        name: name || `${resource.name || resource.slug} ${index + 1}`,
-      });
-    }
-    const lifeList = Array.isArray(value.lives) ? value.lives : [];
-    merged.lives.push(...lifeList.filter((item) => item && typeof item === "object"));
-    const parseList = Array.isArray(value.parses) ? value.parses : [];
-    for (const parse of parseList) {
-      if (!parse || typeof parse !== "object") continue;
-      let name = String(parse.name || "").trim();
-      if (name && usedParseNames.has(name)) name = `${name} · ${resource.name || resource.slug}`;
-      if (name) usedParseNames.add(name);
-      merged.parses.push({ ...parse, name: name || `解析 ${merged.parses.length + 1}` });
-    }
-    usedBytes += resource.content_json.length;
-    if (usedBytes > AGGREGATE_MAX_BYTES) break;
-  }
-  if (!merged.sites.length && !merged.lives.length) return { error: "AGGREGATE_EMPTY" };
-  const bodyText = JSON.stringify(merged, null, 2);
-  if (bodyText.length > AGGREGATE_MAX_BYTES) return { error: "AGGREGATE_TOO_LARGE" };
-  return { bodyText };
-}
-
 export async function serveAggregate(request, env, token, variant) {
   if (!TOKEN_PATTERN.test(token)) return error("TOKEN_INVALID", 401);
   if (request.method !== "GET" && request.method !== "HEAD") return error("METHOD_NOT_ALLOWED", 405);
@@ -146,20 +87,26 @@ export async function serveAggregate(request, env, token, variant) {
   }
   const device = await noteWeakDevice(env.DB, lookup.member_id, request);
   if (device.blocked) return error(device.reason || "DEVICE_REMOVED", 403);
-  const resources = await loadPlanJsonResources(env.DB, lookup.plan_id, lookup.include_all);
-  if (!resources.length) return error("AGGREGATE_EMPTY", 404);
+  const warehouses = await loadPlanWarehouseMeta(env.DB, lookup.plan_id, lookup.include_all);
+  if (!warehouses.length) return error("AGGREGATE_EMPTY", 404);
   const origin = gatewayOrigin(request, env);
   let bodyText;
   if (variant === "tvbox") {
     const primary = String(env.PUBLIC_BASE_URL || "").replace(/\/+$/u, "");
     const backupBase = String(env.PUBLIC_BACKUP_URL || "").replace(/\/+$/u, "");
     const altOrigin = origin === backupBase ? primary : backupBase;
-    bodyText = buildMultiWarehouse(resources, origin, token, altOrigin);
+    bodyText = buildMultiWarehouse(warehouses, origin, token, altOrigin);
   } else {
-    const blockedApis = await loadBlockedApis(env);
-    const merged = await buildMergedWarehouse(request, env, resources, origin, token, blockedApis);
-    if (merged.error) return error(merged.error, merged.error === "AGGREGATE_EMPTY" ? 404 : 413);
-    bodyText = merged.bodyText;
+    // 单仓 = 读取已准入（去重+探活）的合并产物，整体改写为该会员的网关地址
+    const artifact = await env.DB.prepare("SELECT content FROM generated_artifacts WHERE key = 'catalog:merged'").first();
+    if (!artifact?.content) return error("AGGREGATE_EMPTY", 404, "单仓地址库尚未生成，请联系管理员执行「一键抓取更新」。");
+    const anchorSlug = warehouses[0].slug;
+    const prefix = `${origin}/${token}/${anchorSlug}`;
+    try {
+      bodyText = await rewriteJsonText(artifact.content, new Set(), new URL(origin + "/"), prefix, [], env);
+    } catch {
+      return error("AGGREGATE_FAILED", 502);
+    }
   }
   if (request.method === "HEAD") return new Response(null, { status: 200, headers: responseHeaders({ "content-type": "application/json; charset=utf-8" }) });
   return jsonSubscriptionResponse(request, bodyText);
