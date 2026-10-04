@@ -187,14 +187,7 @@ export async function serveMemberPage(request, env, token) {
   const deviceRow = await env.DB.prepare("SELECT COUNT(*) AS count FROM devices WHERE member_id = ? AND revoked_at IS NULL").bind(lookup.member_id).first();
   const activeDevices = Number(deviceRow?.count || 0);
   const usable = memberUsable(lookup);
-  let resources = [];
-  let origin = gatewayOrigin(request, env);
-  if (usable) {
-    const rows = lookup.include_all
-      ? await env.DB.prepare("SELECT r.slug, r.name, s.synced_at, s.url_count FROM resources r LEFT JOIN resource_snapshots s ON s.resource_id = r.id WHERE r.enabled = 1 AND r.type = 'json' ORDER BY r.created_at ASC, r.slug ASC").all()
-      : await env.DB.prepare("SELECT r.slug, r.name, s.synced_at, s.url_count FROM resources r JOIN plan_resources pr ON pr.resource_id = r.id AND pr.plan_id = ? LEFT JOIN resource_snapshots s ON s.resource_id = r.id WHERE r.enabled = 1 AND r.type = 'json' ORDER BY r.created_at ASC, r.slug ASC").bind(lookup.plan_id).all();
-    resources = (rows.results || []).filter((row) => row.synced_at);
-  }
+  const origin = gatewayOrigin(request, env);
   const primaryBase = String(env.PUBLIC_BASE_URL || "").replace(/\/+$/u, "");
   const backupBase = String(env.PUBLIC_BACKUP_URL || "").replace(/\/+$/u, "");
   const data = {
@@ -209,7 +202,6 @@ export async function serveMemberPage(request, env, token) {
     origin,
     token,
     usable,
-    resources,
   };
   const html = memberPageHtml(data);
   return new Response(request.method === "HEAD" ? null : html, {
