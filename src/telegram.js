@@ -146,6 +146,7 @@ async function linkList(env, db, member) {
     "② 单仓地址（全部片源聚合为一份配置）：",
     base + "/" + token + "/all.json",
     "",
+    ...(String(env.PUBLIC_BACKUP_URL || "").trim() ? ["备用多仓地址（主线路异常时使用）：", String(env.PUBLIC_BACKUP_URL).replace(/\/+$/u, "") + "/" + token + "/tvbox.json", ""] : []),
     "这些地址包含你的访问凭证。重置后旧地址立即失效。",
   ];
   return lines.join("\n");

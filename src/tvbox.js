@@ -49,11 +49,15 @@ async function jsonSubscriptionResponse(request, bodyText) {
   });
 }
 
-function buildMultiWarehouse(resources, origin, token) {
+function buildMultiWarehouse(resources, origin, token, altOrigin = "") {
   const entries = resources.map((resource) => ({
     sourceName: resource.name || resource.slug,
     sourceUrl: `${origin}/${token}/${resource.slug}.json`,
   }));
+  const backup = String(altOrigin || "").replace(/\/+$/u, "");
+  if (backup && backup !== origin) {
+    entries.push({ sourceName: "AITV 备用线路 · 一键切换到 dtv.us.ci", sourceUrl: `${backup}/${token}/tvbox.json` });
+  }
   return JSON.stringify({
     storeHouse: entries,
     urls: entries.map((entry) => ({ name: entry.sourceName, url: entry.sourceUrl })),
@@ -134,7 +138,10 @@ export async function serveAggregate(request, env, token, variant) {
   const origin = gatewayOrigin(request, env);
   let bodyText;
   if (variant === "tvbox") {
-    bodyText = buildMultiWarehouse(resources, origin, token);
+    const primary = String(env.PUBLIC_BASE_URL || "").replace(/\/+$/u, "");
+    const backupBase = String(env.PUBLIC_BACKUP_URL || "").replace(/\/+$/u, "");
+    const altOrigin = origin === backupBase ? primary : backupBase;
+    bodyText = buildMultiWarehouse(resources, origin, token, altOrigin);
   } else {
     const merged = await buildMergedWarehouse(request, env, resources, origin, token);
     if (merged.error) return error(merged.error, merged.error === "AGGREGATE_EMPTY" ? 404 : 413);
@@ -227,7 +234,10 @@ export async function serveMemberPage(request, env, token) {
     ).bind(lookup.plan_id).all();
     resources = (rows.results || []).filter((row) => row.synced_at);
   }
+  const primaryBase = String(env.PUBLIC_BASE_URL || "").replace(/\/+$/u, "");
+  const backupBase = String(env.PUBLIC_BACKUP_URL || "").replace(/\/+$/u, "");
   const data = {
+    backup_origin: origin === backupBase ? primaryBase : backupBase,
     display_name: lookup.display_name || lookup.telegram_user_id,
     status: lookup.member_status,
     status_label: MEMBER_STATUSES_ZH[lookup.member_status] || lookup.member_status,

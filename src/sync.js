@@ -273,6 +273,10 @@ export async function regenerateArtifacts(env, { probe = false, probeLimit = 250
     sourceName: (row.name || row.slug) + " · 本站",
     sourceUrl: origin + "/catalog/" + row.slug + ".json",
   }));
+  const backupBase = String(env.PUBLIC_BACKUP_URL || "").replace(/\/+$/u, "");
+  if (backupBase && backupBase !== origin) {
+    entries.push({ sourceName: "AITV 备用线路 · 一键切换到 dtv.us.ci", sourceUrl: backupBase + "/catalog/tvbox.json" });
+  }
   const multi = JSON.stringify({
     storeHouse: entries,
     urls: entries.map((entry) => ({ name: entry.sourceName, url: entry.sourceUrl })),

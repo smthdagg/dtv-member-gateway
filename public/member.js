@@ -133,4 +133,11 @@
     desc: "全部片源聚合为一份配置的仓库，和不支持多仓切换的客户端兼容。",
     url: fullUrl("/all.json"),
   }));
+  if (data.backup_origin) {
+    app.appendChild(card({
+      title: "③ 备用多仓地址（dtv.us.ci）",
+      desc: "主线路打不开时使用；备用线路里的所有地址也会自动切换到备用域名。",
+      url: String(data.backup_origin).replace(/\/+$/, "") + "/" + token + "/tvbox.json",
+    }));
+  }
 })();
