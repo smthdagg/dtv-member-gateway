@@ -137,7 +137,22 @@ export async function syncJsonResource(db, env, resource, { actor = "admin" } = 
     await audit(db, actor, "resource.sync_failed", "resource", resource.id, fetched.error);
     return { id: resource.id, slug: resource.slug, ok: false, error: fetched.error, error_detail: detail };
   }
-  const contentHash = await sha256Hex(fetched.contentJson);
+  // 入库即规范化：快照统一存纯 JSON（剥离注释、消除格式差异），下游全部直接可用
+  let normalizedJson;
+  try {
+    normalizedJson = JSON.stringify(parseJsonWithComments(fetched.contentJson));
+  } catch {
+    const detail = "上游配置包含无法标准化的语法（注释或尾逗号），已拒绝入库。";
+    await db.batch([
+      db.prepare("UPDATE resources SET last_sync_attempt_at = ?, last_sync_error = ? WHERE id = ?")
+        .bind(attemptedAt, detail.slice(0, 400), resource.id),
+      db.prepare("INSERT INTO resource_sync_log (id, resource_id, started_at, ok, error, url_count, duration_ms) VALUES (?, ?, ?, 0, ?, 0, ?)")
+        .bind(newId(), resource.id, attemptedAt, "UPSTREAM_JSON_INVALID", Date.now() - startedAt),
+    ]);
+    return { id: resource.id, slug: resource.slug, ok: false, error: "UPSTREAM_JSON_INVALID", error_detail: detail };
+  }
+  fetched.contentJson = normalizedJson;
+  const contentHash = await sha256Hex(normalizedJson);
   const syncedAt = attemptedAt;
   const unchanged = resource.content_hash && resource.content_hash === contentHash;
   if (unchanged) {
@@ -225,26 +240,29 @@ export async function probeHttpApis(env, sites, { limit = 250, concurrency = 25 
       const api = apis[index++];
       let ok = 0;
       let status = "";
+      let latency = null;
+      const startedAt = Date.now();
       try {
         const response = await fetch(api, { method: "GET", redirect: "follow", headers: { "user-agent": "Mozilla/5.0", accept: "*/*" }, signal: AbortSignal.timeout(6_000) });
         try { await response.body?.cancel(); } catch {}
-        // 网络可达性判定：服务器有任何响应（含 4xx/5xx）即视为可达
+        // 网络可达性判定：服务器有任何响应（含 4xx/5xx）即视为可达，记录耗时用于测速排名
         ok = 1;
-        status = "HTTP " + response.status;
+        latency = Date.now() - startedAt;
+        status = "HTTP " + response.status + " " + latency + "ms";
       } catch (error) {
         ok = 0;
         status = String(error?.name || error?.message || "ERR").slice(0, 20);
       }
       if (ok) alive++; else dead++;
       const hash = (await sha256Hex(api)).slice(0, 32);
-      upserts.push({ api, hash, ok, status });
+      upserts.push({ api, hash, ok, status, latency });
     }
   };
   await Promise.all(Array.from({ length: Math.min(concurrency, apis.length) }, worker));
   if (upserts.length) {
     const statements = upserts.map((row) =>
-      env.DB.prepare("INSERT INTO site_probe_state (api_hash, api, last_ok, fail_streak, last_checked_at, last_status) VALUES (?, ?, ?, ?, ?, ?) ON CONFLICT(api_hash) DO UPDATE SET last_ok = excluded.last_ok, fail_streak = CASE WHEN excluded.last_ok = 1 THEN 0 ELSE site_probe_state.fail_streak + 1 END, last_checked_at = excluded.last_checked_at, last_status = excluded.last_status")
-        .bind(row.hash, row.api, row.ok, row.ok ? 0 : 1, nowIso(), row.status));
+      env.DB.prepare("INSERT INTO site_probe_state (api_hash, api, last_ok, fail_streak, last_checked_at, last_status, latency_ms) VALUES (?, ?, ?, ?, ?, ?, ?) ON CONFLICT(api_hash) DO UPDATE SET last_ok = excluded.last_ok, fail_streak = CASE WHEN excluded.last_ok = 1 THEN 0 ELSE site_probe_state.fail_streak + 1 END, last_checked_at = excluded.last_checked_at, last_status = excluded.last_status, latency_ms = excluded.latency_ms")
+        .bind(row.hash, row.api, row.ok, row.ok ? 0 : 1, nowIso(), row.status, row.latency));
     for (let start = 0; start < statements.length; start += 50) {
       await env.DB.batch(statements.slice(start, start + 50));
     }
@@ -252,11 +270,18 @@ export async function probeHttpApis(env, sites, { limit = 250, concurrency = 25 
   return { checked: upserts.length, alive, dead };
 }
 
-export async function loadBlockedApis(env) {
+export async function loadProbeMap(env) {
   const rows = await env.DB.prepare(
-    "SELECT api FROM site_probe_state WHERE fail_streak >= 1 AND last_checked_at > datetime('now', '-24 hours')"
+    "SELECT api, last_ok, fail_streak, latency_ms FROM site_probe_state WHERE last_checked_at > datetime('now', '-24 hours')"
   ).all();
-  return new Set((rows.results || []).map((row) => row.api));
+  const map = new Map();
+  for (const row of rows.results || []) {
+    map.set(String(row.api), {
+      dead: row.fail_streak >= 1,
+      latency: row.last_ok ? Number(row.latency_ms || 999_999) : Infinity,
+    });
+  }
+  return map;
 }
 
 export async function regenerateArtifacts(env, { probe = false, probeLimit = 250 } = {}) {
@@ -269,80 +294,107 @@ export async function regenerateArtifacts(env, { probe = false, probeLimit = 250
   ).all();
   const resources = rows.results || [];
   const origin = String(env.PUBLIC_BASE_URL || "https://member.example.com").replace(/\/+$/u, "");
-  const entries = resources.map((row) => ({
-    sourceName: (row.name || row.slug) + " · 本站",
-    sourceUrl: origin + "/catalog/" + row.slug + ".json",
-  }));
   const backupBase = String(env.PUBLIC_BACKUP_URL || "").replace(/\/+$/u, "");
+  const entries = [
+    { sourceName: "AiTV主仓库", sourceUrl: origin + "/catalog/all.json" },
+  ];
   if (backupBase && backupBase !== origin) {
-    entries.push({ sourceName: "AITV 备用线路 · 一键切换到 dtv.us.ci", sourceUrl: backupBase + "/catalog/tvbox.json" });
+    entries.push({ sourceName: "AiTV备用仓库", sourceUrl: backupBase + "/catalog/all.json" });
   }
   const multi = JSON.stringify({
     storeHouse: entries,
     urls: entries.map((entry) => ({ name: entry.sourceName, url: entry.sourceUrl })),
   }, null, 2);
 
-  const merged = { sites: [], lives: [], parses: [] };
-  const usedSiteNames = new Set();
-  const usedParseNames = new Set();
-  const seenSiteKeys = new Set();
-  const seenSiteSignatures = new Set();
+  // ===== 归类与测速择优 =====
+  // 节点身份 = 类型|api|ext；同身份/同归一化名称的多个实例，只保留实测最快的一个
+  const groups = new Map(); // identity -> { site, slug, nameNorm }
+  const lives = [];
+  const parses = [];
+  let spider = "";
+  let wallpaper = "";
+  let totalRaw = 0;
+  const nameNorm = (value) => String(value || "").toLowerCase().replace(/[\s\u3000·•・┃｜│|_\-–——()（）\[\]【】「」『』:：!！?？,，.。'"'"'~～*★☆🔥🎬📺]/gu, "");
   for (const resource of resources) {
     let value;
     try { value = parseJsonWithComments(resource.content_json); } catch { continue; }
     if (!value || typeof value !== "object" || Array.isArray(value)) continue;
-    if (!merged.spider && typeof value.spider === "string" && value.spider) merged.spider = value.spider;
-    if (!merged.wallpaper && typeof value.wallpaper === "string" && value.wallpaper) merged.wallpaper = value.wallpaper;
+    if (!spider && typeof value.spider === "string" && value.spider) spider = value.spider;
+    if (!wallpaper && typeof value.wallpaper === "string" && value.wallpaper) wallpaper = value.wallpaper;
     const siteList = Array.isArray(value.sites) ? value.sites : [];
     for (let index = 0; index < siteList.length; index++) {
       const site = siteList[index];
       if (!site || typeof site !== "object") continue;
-      const siteKey = `${resource.slug}:${String(site.key || index)}`;
-      if (seenSiteKeys.has(siteKey)) continue;
-      // 节点身份 = api + ext 配置（对象正确序列化）+ 类型；名称只是各仓的包装，不参与身份
+      totalRaw++;
       const siteApi = String(site.api || "").trim();
       let extKey = "";
       if (site.ext !== undefined && site.ext !== null && site.ext !== "") {
         extKey = typeof site.ext === "object" ? JSON.stringify(site.ext) : String(site.ext).trim();
       }
-      const signature = [String(site.type ?? ""), siteApi, extKey].join("|");
-      if (seenSiteSignatures.has(signature)) continue;
-      seenSiteKeys.add(siteKey);
-      seenSiteSignatures.add(signature);
-      const originalName = String(site.name || "").trim();
-      let name = originalName;
-      if (name && usedSiteNames.has(name)) name = `${name} · ${resource.name || resource.slug}`;
-      if (name) usedSiteNames.add(name);
-      merged.sites.push({
-        ...site,
-        key: `${resource.slug}:${String(site.key || index)}`,
-        name: name || `${resource.name || resource.slug} ${index + 1}`,
-      });
+      const identity = [String(site.type ?? ""), siteApi, extKey].join("|");
+      const displayName = String(site.name || "").trim() || `${resource.name || resource.slug} ${index + 1}`;
+      const groupKey = identity + "#" + nameNorm(displayName);
+      const existing = groups.get(groupKey);
+      if (existing) {
+        existing.copies.push({ slug: resource.slug, name: displayName });
+        continue;
+      }
+      groups.set(groupKey, { site, slug: resource.slug, name: displayName, copies: [{ slug: resource.slug, name: displayName }] });
     }
     const lifeList = Array.isArray(value.lives) ? value.lives : [];
-    merged.lives.push(...lifeList.filter((item) => item && typeof item === "object"));
+    lives.push(...lifeList.filter((item) => item && typeof item === "object"));
     const parseList = Array.isArray(value.parses) ? value.parses : [];
     for (const parse of parseList) {
       if (!parse || typeof parse !== "object") continue;
-      let name = String(parse.name || "").trim();
-      if (name && usedParseNames.has(name)) name = `${name} · ${resource.name || resource.slug}`;
-      if (name) usedParseNames.add(name);
-      merged.parses.push({ ...parse, name: name || `解析 ${merged.parses.length + 1}` });
+      const key = String(parse.name || "").trim().toLowerCase();
+      if (key && parses.some((item) => String(item.name || "").toLowerCase() === key)) continue;
+      parses.push(parse);
     }
   }
-  // 节点级准入：http 直连型 api 实测探活（可选），连续 2 次失败的剔除出单仓
+
+  // 探活（可选）+ 载入耗时与可达状态
   let probeStats = { checked: 0, alive: 0, dead: 0, blocked: 0, skipped: 0 };
-  if (probe) probeStats = { ...probeStats, ...(await probeHttpApis(env, merged.sites, { limit: probeLimit })) };
-  const blocked = await loadBlockedApis(env);
-  if (blocked.size) {
-    const before = merged.sites.length;
-    merged.sites = merged.sites.filter((site) => {
-      const api = String(site?.api || "").trim();
-      return !(/^https?:\/\//iu.test(api) && blocked.has(api));
-    });
-    probeStats.blocked = before - merged.sites.length;
+  const probeInput = [];
+  for (const group of groups.values()) {
+    const api = String(group.site.api || "").trim();
+    if (/^https?:\/\//iu.test(api)) probeInput.push({ api });
   }
-  probeStats.skipped = merged.sites.length;
+  if (probe) probeStats = { ...probeStats, ...(await probeHttpApis(env, probeInput, { limit: probeLimit })) };
+  const probeMap = await loadProbeMap(env);
+
+  // 同名组内测速择优：http 型按实测耗时取最快；未测的排后；不可达的剔除；csp 型保留首个
+  const mergedSites = [];
+  const usedDisplayNames = new Set();
+  let mergedDead = 0;
+  for (const group of groups.values()) {
+    const api = String(group.site.api || "").trim();
+    const isHttp = /^https?:\/\//iu.test(api);
+    if (isHttp) {
+      const state = probeMap.get(api);
+      if (state && state.dead) { mergedDead++; continue; }
+      group.latency = state ? state.latency : 999_999;
+    }
+    mergedSites.push(group);
+  }
+  mergedSites.sort((a, b) => a.latency - b.latency);
+  const merged = { sites: [], lives, parses };
+  if (spider) merged.spider = spider;
+  if (wallpaper) merged.wallpaper = wallpaper;
+  let siteIndex = 0;
+  for (const group of mergedSites) {
+    siteIndex++;
+    const displayName = (() => {
+      let name = group.name;
+      if (name && usedDisplayNames.has(name)) name = `${name} · ${group.copies[0].slug}`;
+      if (name) usedDisplayNames.add(name);
+      return name || `节点 ${siteIndex}`;
+    })();
+    merged.sites.push({
+      ...group.site,
+      key: "aitv_" + (await sha256Hex(group.copies[0].slug + "|" + displayName + "|" + siteIndex)).slice(0, 16),
+      name: displayName,
+    });
+  }
   const single = JSON.stringify(merged);
   const now = nowIso();
   await env.DB.batch([

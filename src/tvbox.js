@@ -56,14 +56,12 @@ async function jsonSubscriptionResponse(request, bodyText) {
   });
 }
 
-function buildMultiWarehouse(resources, origin, token, altOrigin = "") {
-  const entries = resources.map((resource) => ({
-    sourceName: resource.name || resource.slug,
-    sourceUrl: `${origin}/${token}/${resource.slug}.json`,
-  }));
+function buildMultiWarehouse(origin, token, altOrigin = "") {
+  // 聚合多仓最终形态：主/备两个仓库，指向同一份测速择优后的聚合单仓
+  const entries = [{ sourceName: "AiTV主仓库", sourceUrl: `${origin}/${token}/all.json` }];
   const backup = String(altOrigin || "").replace(/\/+$/u, "");
   if (backup && backup !== origin) {
-    entries.push({ sourceName: "AITV 备用线路 · 一键切换到 dtv.us.ci", sourceUrl: `${backup}/${token}/tvbox.json` });
+    entries.push({ sourceName: "AiTV备用仓库", sourceUrl: `${backup}/${token}/all.json` });
   }
   return JSON.stringify({
     storeHouse: entries,
@@ -95,7 +93,7 @@ export async function serveAggregate(request, env, token, variant) {
     const primary = String(env.PUBLIC_BASE_URL || "").replace(/\/+$/u, "");
     const backupBase = String(env.PUBLIC_BACKUP_URL || "").replace(/\/+$/u, "");
     const altOrigin = origin === backupBase ? primary : backupBase;
-    bodyText = buildMultiWarehouse(warehouses, origin, token, altOrigin);
+    bodyText = buildMultiWarehouse(origin, token, altOrigin);
   } else {
     // 单仓 = 读取已准入（去重+探活）的合并产物，整体改写为该会员的网关地址
     const artifact = await env.DB.prepare("SELECT content FROM generated_artifacts WHERE key = 'catalog:merged'").first();
@@ -112,10 +110,8 @@ export async function serveAggregate(request, env, token, variant) {
   return jsonSubscriptionResponse(request, bodyText);
 }
 
-async function cachedText(request, build) {
-  const cache = caches.default;
-  const hit = await cache.match(request);
-  if (hit) return hit;
+async function cachedText(request, build, extra = {}) {
+  // 不使用 Cache API：低频端点每次现生成，避免任何陈旧缓存；边缘缓存由 s-maxage 控制
   const bodyText = await build();
   const etag = '"' + (await sha256Hex(bodyText)).slice(0, 32) + '"';
   if (request.headers.get("if-none-match") === etag) {
@@ -165,13 +161,15 @@ export async function serveCatalogSource(request, env, slug) {
     "SELECT s.content_json, s.source_content_type FROM resources r JOIN resource_snapshots s ON s.resource_id = r.id WHERE r.slug = ? AND r.enabled = 1 AND r.type = 'json'"
   ).bind(slug).first();
   if (!row?.content_json) return error("AGGREGATE_EMPTY", 404);
+  let normFail = "";
   return cachedText(request, async () => {
     try {
       return JSON.stringify(parseJsonWithComments(row.content_json));
-    } catch {
+    } catch (err) {
+      normFail = String(err?.message || err).slice(0, 100);
       return row.content_json;
     }
-  });
+  }, { "x-norm-fail": normFail });
 }
 
 function escapeHtml(value) {

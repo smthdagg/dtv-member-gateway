@@ -354,7 +354,7 @@ export default {
       if (url.pathname === "/catalog/status") {
         return subscriptionResponse(await serveCatalog(request, env, "status"));
       }
-      const catalogSourceMatch = url.pathname.match(/^\/catalog\/([a-z0-9][a-z0-9._-]{1,39})\.json$/iu);
+      const catalogSourceMatch = url.pathname.match(/^\/catalog\/(?:s\/)?([a-z0-9][a-z0-9-]{0,39})(?:\.[a-z0-9]{6,16})?\.json$/iu);
       if (catalogSourceMatch) {
         if (request.method === "OPTIONS") return subscriptionResponse(new Response(null, { status: 204, headers: responseHeaders() }));
         return subscriptionResponse(await serveCatalogSource(request, env, catalogSourceMatch[1]));
@@ -375,7 +375,8 @@ export default {
         return subscriptionResponse(await serveResource(request, env, token, slug, parts.slice(2).join("/"), jsonAlias));
       }
       return error("NOT_FOUND", 404);
-    } catch {
+    } catch (err) {
+      console.error("worker.fetch.error", request.url, err);
       return error("DATABASE_UNAVAILABLE", 503, "Service is unavailable; protected requests are closed");
     }
   },
