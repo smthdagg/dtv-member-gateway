@@ -1,0 +1,73 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1120 320" width="1120" height="320">
+  <defs>
+    <linearGradient id="badge" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#0D1526"/>
+      <stop offset="1" stop-color="#131F38"/>
+    </linearGradient>
+    <linearGradient id="frame" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#38BDF8"/>
+      <stop offset="0.55" stop-color="#6D8BFF"/>
+      <stop offset="1" stop-color="#A78BFA"/>
+    </linearGradient>
+    <linearGradient id="screen" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#0A1120"/>
+      <stop offset="1" stop-color="#0E1930"/>
+    </linearGradient>
+    <linearGradient id="net" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#7DD3FC"/>
+      <stop offset="1" stop-color="#C4B5FD"/>
+    </linearGradient>
+    <linearGradient id="warm" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#FBBF24"/>
+      <stop offset="1" stop-color="#FB923C"/>
+    </linearGradient>
+    <linearGradient id="title" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#EAF2FF"/>
+      <stop offset="1" stop-color="#B9CFF7"/>
+    </linearGradient>
+    <filter id="glow" x="-60%" y="-60%" width="220%" height="220%">
+      <feGaussianBlur stdDeviation="4" result="b"/>
+      <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+  </defs>
+
+  <!-- 图标（缩放至 260×260，居中于左侧） -->
+  <g transform="translate(30,30) scale(0.5078)">
+    <rect x="16" y="16" width="480" height="480" rx="112" fill="url(#badge)"/>
+    <rect x="16" y="16" width="480" height="480" rx="112" fill="none" stroke="#1E2C4A" stroke-width="3"/>
+    <g stroke="url(#frame)" stroke-width="14" stroke-linecap="round" fill="none">
+      <path d="M256 152 L198 92"/><path d="M256 152 L314 92"/>
+    </g>
+    <circle cx="192" cy="86" r="15" fill="#7DD3FC" filter="url(#glow)"/>
+    <circle cx="320" cy="86" r="15" fill="#A78BFA" filter="url(#glow)"/>
+    <rect x="92" y="150" width="328" height="226" rx="40" fill="#0F1930" stroke="url(#frame)" stroke-width="13"/>
+    <rect x="122" y="180" width="268" height="166" rx="26" fill="url(#screen)" stroke="#22304F" stroke-width="4"/>
+    <g stroke="url(#net)" stroke-width="7" stroke-linecap="round" opacity="0.9">
+      <path d="M256 263 L188 216"/><path d="M256 263 L324 216"/>
+      <path d="M256 263 L188 310"/><path d="M256 263 L324 310"/>
+    </g>
+    <g filter="url(#glow)">
+      <circle cx="256" cy="263" r="34" fill="#0B1424" stroke="url(#net)" stroke-width="9"/>
+      <circle cx="256" cy="263" r="11" fill="#7DD3FC"/>
+      <circle cx="188" cy="216" r="16" fill="#0B1424" stroke="#7DD3FC" stroke-width="6"/>
+      <circle cx="324" cy="216" r="16" fill="#0B1424" stroke="#A78BFA" stroke-width="6"/>
+      <circle cx="188" cy="310" r="16" fill="#0B1424" stroke="#A78BFA" stroke-width="6"/>
+      <circle cx="324" cy="310" r="16" fill="#0B1424" stroke="#7DD3FC" stroke-width="6"/>
+    </g>
+    <g stroke="url(#warm)" stroke-width="6.5" stroke-linecap="round" fill="none" opacity="0.95">
+      <path d="M256 392 C 220 402, 190 408, 158 420"/>
+      <path d="M256 392 L 256 428"/>
+      <path d="M256 392 C 292 402, 322 408, 354 420"/>
+    </g>
+    <g filter="url(#glow)">
+      <circle cx="152" cy="424" r="17" fill="#0B1424" stroke="url(#warm)" stroke-width="6"/>
+      <circle cx="256" cy="440" r="19" fill="#0B1424" stroke="url(#warm)" stroke-width="6"/>
+      <circle cx="360" cy="424" r="17" fill="#0B1424" stroke="url(#warm)" stroke-width="6"/>
+    </g>
+  </g>
+
+  <!-- 文字 -->
+  <text x="330" y="150" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, sans-serif" font-size="104" font-weight="700" fill="url(#title)" letter-spacing="6">DTV 共享社区</text>
+  <text x="334" y="222" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, sans-serif" font-size="40" font-weight="500" fill="#8FA6CC" letter-spacing="10">TV · AI · 多仓聚合分享</text>
+  <rect x="336" y="252" width="240" height="6" rx="3" fill="url(#warm)"/>
+</svg>
