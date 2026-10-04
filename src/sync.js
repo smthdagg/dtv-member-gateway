@@ -194,6 +194,64 @@ export async function notifyAdmins(env, text) {
 
 const SYNC_RESOURCE_COLUMNS = "id, slug, name, type, upstream_url, allowed_hosts, rewrite_fields, max_response_bytes, content_hash";
 
+export async function regenerateArtifacts(env) {
+  const rows = await env.DB.prepare(
+    "SELECT r.slug, r.name, s.content_json FROM resources r JOIN resource_snapshots s ON s.resource_id = r.id WHERE r.enabled = 1 AND r.type = 'json' ORDER BY r.created_at ASC, r.slug ASC"
+  ).all();
+  const resources = rows.results || [];
+  const origin = String(env.PUBLIC_BASE_URL || "https://member.example.com").replace(/\/+$/u, "");
+  const entries = resources.map((row) => ({
+    sourceName: (row.name || row.slug) + " · 本站",
+    sourceUrl: origin + "/catalog/" + row.slug + ".json",
+  }));
+  const multi = JSON.stringify({
+    storeHouse: entries,
+    urls: entries.map((entry) => ({ name: entry.sourceName, url: entry.sourceUrl })),
+  }, null, 2);
+
+  const merged = { sites: [], lives: [], parses: [] };
+  const usedSiteNames = new Set();
+  const usedParseNames = new Set();
+  for (const resource of resources) {
+    let value;
+    try { value = parseJsonWithComments(resource.content_json); } catch { continue; }
+    if (!value || typeof value !== "object" || Array.isArray(value)) continue;
+    if (!merged.spider && typeof value.spider === "string" && value.spider) merged.spider = value.spider;
+    if (!merged.wallpaper && typeof value.wallpaper === "string" && value.wallpaper) merged.wallpaper = value.wallpaper;
+    const siteList = Array.isArray(value.sites) ? value.sites : [];
+    for (let index = 0; index < siteList.length; index++) {
+      const site = siteList[index];
+      if (!site || typeof site !== "object") continue;
+      const originalName = String(site.name || "").trim();
+      let name = originalName;
+      if (name && usedSiteNames.has(name)) name = `${name} · ${resource.name || resource.slug}`;
+      if (name) usedSiteNames.add(name);
+      merged.sites.push({
+        ...site,
+        key: `${resource.slug}:${String(site.key || index)}`,
+        name: name || `${resource.name || resource.slug} ${index + 1}`,
+      });
+    }
+    const lifeList = Array.isArray(value.lives) ? value.lives : [];
+    merged.lives.push(...lifeList.filter((item) => item && typeof item === "object"));
+    const parseList = Array.isArray(value.parses) ? value.parses : [];
+    for (const parse of parseList) {
+      if (!parse || typeof parse !== "object") continue;
+      let name = String(parse.name || "").trim();
+      if (name && usedParseNames.has(name)) name = `${name} · ${resource.name || resource.slug}`;
+      if (name) usedParseNames.add(name);
+      merged.parses.push({ ...parse, name: name || `解析 ${merged.parses.length + 1}` });
+    }
+  }
+  const single = JSON.stringify(merged);
+  const now = nowIso();
+  await env.DB.batch([
+    env.DB.prepare("INSERT INTO generated_artifacts (key, content, generated_at) VALUES ('catalog:multi', ?, ?) ON CONFLICT(key) DO UPDATE SET content = excluded.content, generated_at = excluded.generated_at").bind(multi, now),
+    env.DB.prepare("INSERT INTO generated_artifacts (key, content, generated_at) VALUES ('catalog:merged', ?, ?) ON CONFLICT(key) DO UPDATE SET content = excluded.content, generated_at = excluded.generated_at").bind(single, now),
+  ]);
+  return { resources: resources.length, sites: merged.sites.length, lives: merged.lives.length, parses: merged.parses.length, generated_at: now };
+}
+
 export async function runDueSync(env, { limit = 8, notify = true } = {}) {
   const result = await env.DB.prepare(
     "SELECT " + SYNC_RESOURCE_COLUMNS + " FROM resources WHERE type = 'json' AND enabled = 1 AND auto_sync = 1 AND (last_sync_attempt_at IS NULL OR last_sync_attempt_at < datetime('now', '-' || MAX(15, sync_interval_minutes) || ' minutes')) ORDER BY COALESCE(last_sync_attempt_at, '1970-01-01') ASC LIMIT ?"

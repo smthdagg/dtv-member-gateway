@@ -5,8 +5,8 @@ import { ADMIN_HTML, APP_JS, LOGO_PNG_BASE64, STYLE_CSS } from "./ui.js";
 import { responseHeaders, error, subscriptionResponse } from "./http.js";
 import { noteWeakDevice } from "./devices.js";
 import { isPublicHostname, rewriteJsonText, rewritePlaylistText, gatewayOrigin } from "./rewrite.js";
-import { runDueSync } from "./sync.js";
-import { serveAggregate, serveMemberPage, serveCatalog } from "./tvbox.js";
+import { regenerateArtifacts, runDueSync } from "./sync.js";
+import { serveAggregate, serveMemberPage, serveCatalog, serveCatalogSource } from "./tvbox.js";
 
 const encoder = new TextEncoder();
 const TOKEN_PATTERN = /^[A-Za-z0-9_-]{42,48}$/u;
@@ -347,8 +347,17 @@ export default {
         if (request.method === "OPTIONS") return subscriptionResponse(new Response(null, { status: 204, headers: responseHeaders() }));
         return subscriptionResponse(await serveCatalog(request, env, "tvbox"));
       }
+      if (url.pathname === "/catalog/all.json") {
+        if (request.method === "OPTIONS") return subscriptionResponse(new Response(null, { status: 204, headers: responseHeaders() }));
+        return subscriptionResponse(await serveCatalog(request, env, "all"));
+      }
       if (url.pathname === "/catalog/status") {
         return subscriptionResponse(await serveCatalog(request, env, "status"));
+      }
+      const catalogSourceMatch = url.pathname.match(/^\/catalog\/([a-z0-9][a-z0-9._-]{1,39})\.json$/iu);
+      if (catalogSourceMatch) {
+        if (request.method === "OPTIONS") return subscriptionResponse(new Response(null, { status: 204, headers: responseHeaders() }));
+        return subscriptionResponse(await serveCatalogSource(request, env, catalogSourceMatch[1]));
       }
       const parts = url.pathname.split("/").filter(Boolean);
       if (parts.length === 1 && (request.method === "GET" || request.method === "HEAD")) {
@@ -371,7 +380,12 @@ export default {
     }
   },
   async scheduled(_event, env, context) {
-    context.waitUntil(runDueSync(env, { limit: 8 }).catch(() => {}));
+    context.waitUntil((async () => {
+      try {
+        const result = await runDueSync(env, { limit: 8 });
+        if (result.attempted > 0) await regenerateArtifacts(env);
+      } catch {}
+    })());
     const confirmationCutoff = new Date(Date.now() - 86_400_000).toISOString();
     const draftCutoff = new Date(Date.now() - 86_400_000).toISOString();
     const retentionRow = await env.DB.prepare("SELECT plain_value FROM app_settings WHERE setting_key = 'log_retention_days'").first();

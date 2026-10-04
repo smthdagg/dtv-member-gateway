@@ -124,46 +124,13 @@
   }
 
   app.appendChild(card({
-    title: "多仓订阅地址（推荐，TVBox 填这个）",
-    desc: "包含你套餐内的全部仓库，保存后在应用的仓库列表中切换。",
+    title: "① 多仓地址（推荐）",
+    desc: "在 TVBox「配置地址」里填这个，保存后可在应用的仓库列表中切换全部仓库。",
     url: fullUrl("/tvbox.json"),
   }));
   app.appendChild(card({
-    title: "聚合单仓地址（全部源合并为一个）",
-    desc: "把所有仓库的片源合并成一份配置，适合不支持多仓切换的客户端。",
+    title: "② 单仓地址",
+    desc: "全部片源聚合为一份配置的仓库，和不支持多仓切换的客户端兼容。",
     url: fullUrl("/all.json"),
   }));
-
-  var listCard = document.createElement("div");
-  listCard.className = "card";
-  listCard.innerHTML = "<h2>单独订阅某个仓库</h2><div class='desc'>各仓库独立地址，可按需添加。</div>";
-  var list = document.createElement("ul");
-  list.className = "reslist";
-  data.resources.forEach(function (resource) {
-    var item = document.createElement("li");
-    var left = document.createElement("div");
-    var name = document.createElement("div");
-    name.className = "resname";
-    name.textContent = resource.name || resource.slug;
-    var sub = document.createElement("div");
-    sub.className = "ressub";
-    sub.textContent = "代号 " + resource.slug + " · " + (resource.url_count || 0) + " 个地址" +
-      (resource.synced_at ? " · 同步于 " + String(resource.synced_at).slice(0, 16).replace("T", " ") : "");
-    left.appendChild(name);
-    left.appendChild(sub);
-    var right = document.createElement("div");
-    right.className = "actions";
-    right.style.marginTop = "0";
-    var copy = document.createElement("button");
-    copy.className = "ghost";
-    copy.textContent = "复制";
-    var url = fullUrl("/" + resource.slug + ".json");
-    copy.addEventListener("click", function () { copyText(url); });
-    right.appendChild(copy);
-    item.appendChild(left);
-    item.appendChild(right);
-    list.appendChild(item);
-  });
-  listCard.appendChild(list);
-  app.appendChild(listCard);
 })();

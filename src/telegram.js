@@ -138,13 +138,16 @@ async function linkList(env, db, member) {
     "套餐：" + (member.plan_name || "未命名"),
     "到期时间：" + new Date(member.expires_at).toLocaleString("zh-CN", { timeZone: env.DISPLAY_TIME_ZONE || "Asia/Singapore" }),
     "",
-    "个人订阅地址（请勿转发）：",
+    "你的专属地址（二选一，请勿转发）：",
+    "",
+    "① 多仓地址（推荐，可在 TVBox 中切换仓库）：",
+    base + "/" + token + "/tvbox.json",
+    "",
+    "② 单仓地址（全部片源聚合为一份配置）：",
+    base + "/" + token + "/all.json",
+    "",
+    "这些地址包含你的访问凭证。重置后旧地址立即失效。",
   ];
-  for (const resource of resources) {
-    const suffix = resource.type === "stremio" ? "/manifest.json" : resource.type === "json" ? ".json" : "";
-    lines.push(resource.name + "： " + base + "/" + token + "/" + resource.slug + suffix);
-  }
-  lines.push("", "这些地址包含你的访问凭证。重置后旧地址立即失效。");
   return lines.join("\n");
 }
 

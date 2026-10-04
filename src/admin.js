@@ -1,9 +1,9 @@
 import {
   apiError, audit, clearSessionCookie, hasAdminSession, isSameOrigin, issueToken,
   json, makeSessionCookie, newId, nowIso, parseJsonList, parseJsonWithComments, readJson, safeEqual,
-  setSessionCookie, sessionTtlSeconds,
+  setSessionCookie, sessionTtlSeconds, sha256Hex,
 } from "./security.js";
-import { boundedText, syncJsonResource } from "./sync.js";
+import { boundedText, regenerateArtifacts, syncJsonResource } from "./sync.js";
 import { notifyDeviceLimitDecision, notifyMemberProvisioned, reviewRenewal, reviewSignup } from "./telegram.js";
 import { configureTelegramWebhook, getTelegramConfig, saveTelegramConfig } from "./bot-config.js";
 
@@ -207,6 +207,111 @@ async function saveResource(db, body, resourceId = null) {
   }
   await audit(db, "admin", resourceId ? "resource.update" : "resource.create", "resource", id, "slug=" + value.slug + "; enabled=" + value.enabled + "; auto_sync=" + autoSync);
   return json({ id, slug: value.slug, name: value.name }, resourceId ? 200 : 201);
+}
+
+async function uniqueResourceSlug(db, upstream) {
+  const hostBase = (upstream.hostname.split(".").filter(Boolean)[0] || "src").replace(/[^a-z0-9-]/giu, "").toLowerCase().slice(0, 24) || "src";
+  for (let attempt = 0; attempt < 5; attempt++) {
+    const candidate = hostBase + "-" + Math.random().toString(36).slice(2, 6);
+    const exists = await db.prepare("SELECT 1 AS present FROM resources WHERE slug = ?").bind(candidate).first();
+    if (!exists) return candidate;
+  }
+  return "";
+}
+
+// 别人的多仓 = 仓库的仓库集合：先解析出内部各个仓，逐个检验、去重后集成为我们自己的资源
+async function expandMultiCatalog(env, { limit = 3, perSource = 40 } = {}) {
+  const multis = await env.DB.prepare(
+    "SELECT id, name, url FROM catalog_repositories WHERE enabled = 1 AND kind = 'multi' AND last_ok = 1 AND (last_expand_at IS NULL OR last_expand_at < datetime('now', '-6 hours')) ORDER BY last_expand_at ASC LIMIT ?"
+  ).bind(limit).all();
+  const summary = { sources: 0, found: 0, created: 0, duplicate: 0, invalid: 0, details: [] };
+  for (const multi of multis.results || []) {
+    summary.sources++;
+    const detail = { source: multi.url, found: 0, created: 0, duplicate: 0, invalid: 0, warehouses: [] };
+    let text = "";
+    try {
+      const response = await fetch(multi.url, { redirect: "follow", headers: { "user-agent": "DTV-Member-Gateway/1.0", accept: "application/json, text/*;q=0.9" }, signal: AbortSignal.timeout(15_000) });
+      if (!response.ok) throw new Error("HTTP " + response.status);
+      text = await boundedText(response, 2_097_152) || "";
+    } catch (error) {
+      detail.error = String(error?.message || error).slice(0, 100);
+      summary.details.push(detail);
+      continue;
+    }
+    let parsed;
+    try { parsed = parseJsonWithComments(text); } catch { detail.error = "多仓内容不是有效 JSON"; summary.details.push(detail); continue; }
+    const inner = Array.isArray(parsed?.storeHouse) ? parsed.storeHouse
+      : Array.isArray(parsed?.urls) ? parsed.urls
+      : [];
+    detail.found = inner.length;
+    summary.found += inner.length;
+    let processed = 0;
+    for (const entry of inner) {
+      if (processed >= perSource) break;
+      const url = String(entry?.sourceUrl || entry?.url || "").trim();
+      if (!/^https?:\/\//iu.test(url)) { summary.invalid++; detail.invalid++; continue; }
+      processed++;
+      let upstream;
+      try { upstream = new URL(url); } catch { summary.invalid++; detail.invalid++; continue; }
+      const dupeResource = await env.DB.prepare("SELECT 1 AS present FROM resources WHERE upstream_url = ?").bind(upstream.href).first();
+      if (dupeResource) { summary.duplicate++; detail.duplicate++; continue; }
+      const dupeCatalog = await env.DB.prepare("SELECT 1 AS present FROM catalog_repositories WHERE url = ?").bind(upstream.href).first();
+      if (dupeCatalog) { summary.duplicate++; detail.duplicate++; continue; }
+      let innerText = "";
+      try {
+        const response = await fetch(upstream.href, { redirect: "follow", headers: { "user-agent": "DTV-Member-Gateway/1.0", accept: "application/json, text/*;q=0.9" }, signal: AbortSignal.timeout(15_000) });
+        if (!response.ok) throw new Error("HTTP " + response.status);
+        innerText = await boundedText(response, 3_145_728) || "";
+      } catch (error) {
+        if (String(error?.message || error).includes("Too many subrequests")) {
+          detail.warehouses.push("（本请求子请求已达上限，剩余仓留给下一轮）");
+          break;
+        }
+        summary.invalid++; detail.invalid++;
+        detail.warehouses.push(url.slice(0, 60) + " ✗ " + String(error?.message || error).slice(0, 40));
+        continue;
+      }
+      let value;
+      try { value = parseJsonWithComments(innerText); } catch {
+        summary.invalid++; detail.invalid++;
+        continue;
+      }
+      const hasContent = value && typeof value === "object" && !Array.isArray(value) &&
+        ((Array.isArray(value.sites) && value.sites.length) || (Array.isArray(value.lives) && value.lives.length) || (Array.isArray(value.storeHouse)));
+      if (!hasContent) { summary.invalid++; detail.invalid++; continue; }
+      const contentHash = await sha256Hex(innerText);
+      const dupeByHash = await env.DB.prepare("SELECT 1 AS present FROM resources WHERE content_hash = ? AND content_hash != ''").bind(contentHash).first();
+      if (dupeByHash) { summary.duplicate++; detail.duplicate++; continue; }
+      const name = String(entry?.sourceName || entry?.name || upstream.hostname).trim().slice(0, 60) || upstream.hostname;
+      const slug = await uniqueResourceSlug(env.DB, upstream);
+      if (!slug) { summary.invalid++; detail.invalid++; continue; }
+      const saveResponse = await saveResource(env.DB, {
+        slug, name, type: "json", upstream_url: upstream.href, allowed_hosts: [upstream.hostname],
+        max_response_bytes: 3_145_728, auto_sync: 1, sync_interval_minutes: 360,
+      });
+      const saved = await saveResponse.json();
+      if (!saveResponse.ok) { summary.invalid++; detail.invalid++; detail.warehouses.push(name + " ✗ " + (saved?.error?.code || "SAVE_FAILED")); continue; }
+      const sync = await syncJsonResource(env.DB, env, {
+        id: saved.id, slug: saved.slug, name: saved.name, type: "json",
+        upstream_url: upstream.href, allowed_hosts: JSON.stringify([upstream.hostname]),
+        rewrite_fields: "[]", max_response_bytes: 3_145_728,
+      });
+      if (!sync.ok) {
+        summary.invalid++; detail.invalid++;
+        detail.warehouses.push(name + " ✗ 同步失败 " + (sync.error_detail || sync.error || ""));
+        await env.DB.prepare("DELETE FROM resources WHERE id = ?").bind(saved.id).run();
+        continue;
+      }
+      await env.DB.prepare("INSERT INTO catalog_repositories (id, name, url, kind, source, enabled, created_at) VALUES (?, ?, ?, 'single', ?, 1, ?) ON CONFLICT(url) DO NOTHING")
+        .bind(newId(), name, upstream.href, "expand:" + multi.url.slice(0, 40), nowIso()).run();
+      await env.DB.prepare("INSERT INTO plan_resources (plan_id, resource_id) SELECT id, ? FROM plans WHERE enabled = 1 ON CONFLICT DO NOTHING").bind(saved.id).run();
+      summary.created++; detail.created++;
+      detail.warehouses.push(name + " ✓ " + (sync.url_count ?? 0) + " 地址");
+    }
+    await env.DB.prepare("UPDATE catalog_repositories SET last_expand_at = ? WHERE id = ?").bind(nowIso(), multi.id).run();
+    summary.details.push(detail);
+  }
+  return summary;
 }
 
 export async function adminApi(request, env) {
@@ -440,6 +545,28 @@ export async function adminApi(request, env) {
     const result = await env.DB.prepare("DELETE FROM catalog_repositories WHERE id = ?").bind(catalogItemMatch[1]).run();
     if (!result.meta.changes) return apiError("CATALOG_NOT_FOUND", 404);
     return json({ removed: true });
+  }
+  if (path === "/admin/api/resources/full-update" && method === "POST") {
+    const result = await env.DB.prepare("SELECT id, slug, name, type, upstream_url, allowed_hosts, rewrite_fields, max_response_bytes, content_hash FROM resources WHERE type = 'json' AND enabled = 1 ORDER BY name LIMIT 30").all();
+    const rows = [];
+    for (const resource of result.results || []) {
+      try { rows.push(await syncJsonResource(env.DB, env, resource)); }
+      catch (error) { rows.push({ slug: resource.slug, ok: false, error: "SYNC_EXCEPTION", error_detail: String(error?.message || error).slice(0, 120) }); }
+    }
+    const expansion = await expandMultiCatalog(env, { limit: 3, perSource: 40 });
+    const artifacts = await regenerateArtifacts(env);
+    return json({
+      synced: rows.filter((row) => row.ok).length,
+      failed: rows.filter((row) => !row.ok).length,
+      expansion,
+      artifacts,
+      results: rows,
+    });
+  }
+  if (path === "/admin/api/catalog/expand" && method === "POST") {
+    const summary = await expandMultiCatalog(env, { limit: 3, perSource: 40 });
+    const artifacts = await regenerateArtifacts(env);
+    return json({ ...summary, artifacts });
   }
   if (path === "/admin/api/resources/sync" && method === "POST") {
     const result = await env.DB.prepare("SELECT id, slug, name, type, upstream_url, allowed_hosts, rewrite_fields, max_response_bytes, content_hash FROM resources WHERE type = 'json' AND enabled = 1 ORDER BY name LIMIT 10").all();

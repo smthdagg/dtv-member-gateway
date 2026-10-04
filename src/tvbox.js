@@ -144,28 +144,60 @@ export async function serveAggregate(request, env, token, variant) {
   return jsonSubscriptionResponse(request, bodyText);
 }
 
+async function cachedText(request, build) {
+  const cache = caches.default;
+  const hit = await cache.match(request);
+  if (hit) return hit;
+  const bodyText = await build();
+  const etag = '"' + (await sha256Hex(bodyText)).slice(0, 32) + '"';
+  if (request.headers.get("if-none-match") === etag) {
+    const notModified = new Response(null, { status: 304, headers: responseHeaders({ etag, "cache-control": "public, max-age=300, s-maxage=1800" }) });
+    return notModified;
+  }
+  const response = new Response(bodyText, {
+    status: 200,
+    headers: responseHeaders({
+      "content-type": "application/json; charset=utf-8",
+      etag,
+      "cache-control": "public, max-age=300, s-maxage=1800",
+    }),
+  });
+  try { await cache.put(request, response.clone()); } catch {}
+  return response;
+}
+
 export async function serveCatalog(request, env, variant) {
   if (request.method !== "GET" && request.method !== "HEAD") return error("METHOD_NOT_ALLOWED", 405);
+  if (variant === "tvbox" || variant === "all") {
+    const key = variant === "tvbox" ? "catalog:multi" : "catalog:merged";
+    const row = await env.DB.prepare("SELECT content FROM generated_artifacts WHERE key = ?").bind(key).first();
+    if (!row?.content) return error("AGGREGATE_EMPTY", 404, "地址库尚未生成，请在后台执行一次「一键抓取更新」。");
+    return cachedText(request, async () => row.content);
+  }
   if (variant === "status") {
-    const [repos, resources] = await Promise.all([
+    const [repos, resources, artifacts] = await Promise.all([
       env.DB.prepare("SELECT kind, name, url, enabled, last_checked_at, last_ok, last_error FROM catalog_repositories ORDER BY kind, created_at ASC LIMIT 500").all(),
       env.DB.prepare("SELECT slug, name, upstream_url, enabled, last_sync_attempt_at, last_sync_error, (SELECT synced_at FROM resource_snapshots s WHERE s.resource_id = r.id) AS synced_at, (SELECT url_count FROM resource_snapshots s WHERE s.resource_id = r.id) AS url_count FROM resources r WHERE type = 'json' ORDER BY created_at ASC LIMIT 500").all(),
+      env.DB.prepare("SELECT key, generated_at, LENGTH(content) AS bytes FROM generated_artifacts").all(),
     ]);
-    return jsonSubscriptionResponse(request, JSON.stringify({ generated_at: new Date().toISOString(), repositories: repos.results || [], resources: resources.results || [] }, null, 2));
+    return jsonSubscriptionResponse(request, JSON.stringify({
+      generated_at: new Date().toISOString(),
+      artifacts: artifacts.results || [],
+      repositories: repos.results || [],
+      resources: resources.results || [],
+    }, null, 2));
   }
-  const [repos, resources] = await Promise.all([
-    env.DB.prepare("SELECT name, url FROM catalog_repositories WHERE enabled = 1 AND last_ok = 1 AND kind IN ('multi', 'single') ORDER BY kind ASC, created_at ASC LIMIT 300").all(),
-    env.DB.prepare("SELECT name, upstream_url FROM resources WHERE enabled = 1 AND type = 'json' AND content_hash != '' ORDER BY created_at ASC LIMIT 300").all(),
-  ]);
-  const entries = [
-    ...(repos.results || []).map((row) => ({ sourceName: row.name || "外部仓库", sourceUrl: row.url })),
-    ...(resources.results || []).map((row) => ({ sourceName: (row.name || row.slug) + " · 本站", sourceUrl: row.upstream_url })),
-  ];
-  if (!entries.length) return error("AGGREGATE_EMPTY", 404);
-  return jsonSubscriptionResponse(request, JSON.stringify({
-    storeHouse: entries,
-    urls: entries.map((entry) => ({ name: entry.sourceName, url: entry.sourceUrl })),
-  }, null, 2));
+  return error("NOT_FOUND", 404);
+}
+
+export async function serveCatalogSource(request, env, slug) {
+  if (request.method !== "GET" && request.method !== "HEAD") return error("METHOD_NOT_ALLOWED", 405);
+  if (!/^[a-z0-9][a-z0-9._-]{1,39}$/iu.test(slug)) return error("PATH_INVALID", 400);
+  const row = await env.DB.prepare(
+    "SELECT s.content_json, s.source_content_type FROM resources r JOIN resource_snapshots s ON s.resource_id = r.id WHERE r.slug = ? AND r.enabled = 1 AND r.type = 'json'"
+  ).bind(slug).first();
+  if (!row?.content_json) return error("AGGREGATE_EMPTY", 404);
+  return cachedText(request, async () => row.content_json);
 }
 
 function escapeHtml(value) {
