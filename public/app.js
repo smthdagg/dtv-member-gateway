@@ -88,6 +88,7 @@ $$(".tab").forEach((button) => button.addEventListener("click", () => {
   if (button.dataset.tab === "bot-settings") loadTelegramSettings();
   if (button.dataset.tab === "logs") loadLogSettings();
   if (button.dataset.tab === "audit") loadAudit();
+  if (button.dataset.tab === "resources") loadCatalog();
 }));
 
 $("#open-bot-settings").addEventListener("click", () => $('[data-tab="bot-settings"]').click());
@@ -101,7 +102,7 @@ async function loadAll() {
     renderPlanChecks();
     renderPlans();
     renderResources();
-    await Promise.all([loadOverview(), loadMembers(), loadApplications(), loadRenewals(), loadDeviceLimitRequests()]);
+    await Promise.all([loadOverview(), loadMembers(), loadApplications(), loadRenewals(), loadDeviceLimitRequests(), loadCatalog()]);
   } catch (error) { toast(error.message); }
 }
 
@@ -514,7 +515,7 @@ function renderResources() {
       } else if (resource.snapshot_synced_at) {
         const urlCount = Number(resource.snapshot_url_count || 0);
         const blockedCount = Number(resource.snapshot_blocked_url_count || 0);
-        snapshotCell.textContent = "已同步 · " + urlCount + " 个地址" + (blockedCount ? " · " + blockedCount + " 个不能转发（原值保留）" : "");
+        snapshotCell.textContent = "已同步 · " + urlCount + " 个地址" + (blockedCount ? " · " + blockedCount + " 个不能转发（原值保留）" : "") + (resource.auto_sync ? " · 自动" : "");
         snapshotCell.title = "最近同步：" + new Date(resource.snapshot_synced_at).toLocaleString("zh-CN") +
           (resource.snapshot_top_level_keys?.length ? "；顶层字段：" + resource.snapshot_top_level_keys.join("、") : "");
       } else snapshotCell.textContent = "尚未读取";
@@ -569,6 +570,8 @@ function editResource(resource) {
   form.elements.allowed_hosts.value = (resource.allowed_hosts || []).join(", ");
   form.elements.rewrite_fields.value = (resource.rewrite_fields || []).join(", ");
   form.elements.max_response_bytes.value = resource.max_response_bytes;
+  form.elements.auto_sync.checked = Boolean(resource.auto_sync);
+  form.elements.sync_interval_minutes.value = resource.sync_interval_minutes || 360;
   form.elements.enabled.checked = Boolean(resource.enabled);
   form.scrollIntoView({ behavior: "smooth", block: "center" });
 }
@@ -578,6 +581,8 @@ $("#resource-form").addEventListener("submit", async (event) => {
   const form = event.currentTarget;
   const data = Object.fromEntries(new FormData(form).entries());
   data.enabled = form.elements.enabled.checked;
+  data.auto_sync = form.elements.auto_sync.checked;
+  data.sync_interval_minutes = Number(form.elements.sync_interval_minutes.value || 360);
   data.allowed_hosts = data.allowed_hosts.split(",").map((value) => value.trim()).filter(Boolean);
   data.rewrite_fields = data.rewrite_fields.split(",").map((value) => value.trim()).filter(Boolean);
   const id = form.elements.id.value;
@@ -590,7 +595,106 @@ $("#resource-form").addEventListener("submit", async (event) => {
   } catch (error) { $("#resource-form-note").textContent = error.message; }
 });
 $("#reset-resource-form").addEventListener("click", () => {
-  const form = $("#resource-form"); form.reset(); form.elements.id.value = ""; form.elements.max_response_bytes.value = "2097152"; form.elements.enabled.checked = true;
+  const form = $("#resource-form"); form.reset(); form.elements.id.value = ""; form.elements.max_response_bytes.value = "2097152"; form.elements.auto_sync.checked = true; form.elements.sync_interval_minutes.value = "360"; form.elements.enabled.checked = true;
+});
+$("#resource-batch-import").addEventListener("click", async () => {
+  const button = $("#resource-batch-import");
+  const text = $("#resource-batch-text").value.trim();
+  if (!text) { $("#resource-batch-note").textContent = "先粘贴地址列表。"; return; }
+  button.disabled = true;
+  $("#resource-batch-note").textContent = "正在创建并同步…";
+  try {
+    const result = await api("/resources/batch", {
+      method: "POST",
+      body: JSON.stringify({ text, type: $("#resource-batch-type").value, sync_interval_minutes: Number($("#resource-batch-interval").value || 360) }),
+    });
+    const issues = (result.results || []).filter((row) => !row.ok || row.sync_ok === false)
+      .map((row) => (row.slug || row.url) + " " + (row.sync_error || row.error || ""));
+    $("#resource-batch-note").textContent = "创建 " + result.created + " 条，失败 " + result.failed + " 条" + (issues.length ? "。问题：" + issues.join("；") : "");
+    if (result.created) $("#resource-batch-text").value = "";
+    await loadAll();
+    toast("批量导入完成：成功 " + result.created + "，失败 " + result.failed);
+  } catch (error) { $("#resource-batch-note").textContent = error.message; }
+  finally { button.disabled = false; }
+});
+
+async function loadCatalog() {
+  try {
+    const rows = await api("/catalog");
+    const body = $("#catalog-body");
+    body.replaceChildren();
+    const kindText = { multi: "多仓", single: "单仓", live: "直播" };
+    for (const row of rows) {
+      const tr = document.createElement("tr");
+      tr.append(element("td", row.name || "—"), element("td", kindText[row.kind] || row.kind));
+      const urlCell = element("td", row.url);
+      urlCell.style.wordBreak = "break-all";
+      urlCell.style.maxWidth = "320px";
+      urlCell.title = "来源：" + (row.source || "手动") + (row.last_error ? "；最近校验：" + row.last_error : "");
+      tr.append(urlCell);
+      tr.append(element("td", row.last_checked_at ? (row.last_ok ? "有效" : "失败") : "未校验"));
+      tr.append(element("td", row.enabled ? "是" : "否"));
+      const actions = element("td");
+      const group = element("div", "", "row-actions");
+      const toggle = element("button", row.enabled ? "停用" : "启用", "mini-button");
+      toggle.type = "button";
+      toggle.addEventListener("click", async () => {
+        try {
+          await api("/catalog/" + encodeURIComponent(row.id), { method: "POST", body: JSON.stringify({ enabled: !row.enabled }) });
+          await loadCatalog();
+        } catch (error) { toast(error.message); }
+      });
+      const remove = element("button", "删除", "mini-button warn");
+      remove.type = "button";
+      remove.addEventListener("click", async () => {
+        if (!confirm("从地址库删除这条记录？")) return;
+        try {
+          await api("/catalog/" + encodeURIComponent(row.id), { method: "DELETE", body: "{}" });
+          await loadCatalog();
+        } catch (error) { toast(error.message); }
+      });
+      group.append(toggle, remove);
+      actions.append(group);
+      tr.append(actions);
+      body.append(tr);
+    }
+    if (!rows.length) {
+      const emptyRow = document.createElement("tr");
+      const cell = element("td", "地址库为空。用上方导入框或采集脚本填充。", "muted");
+      cell.colSpan = 6;
+      emptyRow.append(cell);
+      body.append(emptyRow);
+    }
+  } catch (error) { toast(error.message); }
+}
+
+$("#catalog-import").addEventListener("click", async () => {
+  const text = $("#catalog-import-text").value.trim();
+  if (!text) { $("#catalog-note").textContent = "先粘贴地址。"; return; }
+  const button = $("#catalog-import");
+  button.disabled = true;
+  try {
+    const result = await api("/catalog/import", {
+      method: "POST",
+      body: JSON.stringify({ text, kind: $("#catalog-import-kind").value, source: $("#catalog-import-source").value.trim() || "manual" }),
+    });
+    $("#catalog-note").textContent = "新增 " + result.inserted + " 条，重复 " + result.duplicate + " 条，无效 " + result.invalid + " 条";
+    $("#catalog-import-text").value = "";
+    await loadCatalog();
+  } catch (error) { $("#catalog-note").textContent = error.message; }
+  finally { button.disabled = false; }
+});
+
+$("#catalog-validate").addEventListener("click", async (event) => {
+  const button = event.currentTarget;
+  button.disabled = true;
+  $("#catalog-note").textContent = "正在校验（最多 40 条）…";
+  try {
+    const result = await api("/catalog/validate", { method: "POST", body: "{}" });
+    $("#catalog-note").textContent = "已校验 " + result.checked + " 条。";
+    await loadCatalog();
+  } catch (error) { $("#catalog-note").textContent = error.message; }
+  finally { button.disabled = false; }
 });
 $("#resource-form").elements.upstream_url.addEventListener("change", () => {
   const hostInput = $("#resource-form").elements.allowed_hosts;

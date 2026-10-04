@@ -3,12 +3,15 @@ import {
   json, makeSessionCookie, newId, nowIso, parseJsonList, parseJsonWithComments, readJson, safeEqual,
   setSessionCookie, sessionTtlSeconds,
 } from "./security.js";
+import { boundedText, syncJsonResource } from "./sync.js";
 import { notifyDeviceLimitDecision, notifyMemberProvisioned, reviewRenewal, reviewSignup } from "./telegram.js";
 import { configureTelegramWebhook, getTelegramConfig, saveTelegramConfig } from "./bot-config.js";
 
 const MEMBER_STATUSES = new Set(["pending", "active", "paused", "expired", "revoked"]);
 const RESOURCE_TYPES = new Set(["url", "tv", "json", "repository", "stremio"]);
 const LOG_RETENTION_OPTIONS = new Set([30, 60, 90]);
+const RESERVED_SLUGS = new Set(["tvbox", "all", "catalog", "admin", "telegram", "healthz", "status", "app.js", "style.css", "logo.png", "favicon.ico"]);
+const CATALOG_KINDS = new Set(["single", "multi", "live"]);
 
 async function logRetentionDays(db, env) {
   const row = await db.prepare("SELECT plain_value FROM app_settings WHERE setting_key = 'log_retention_days'").first();
@@ -36,154 +39,6 @@ function safeHostname(host) {
   return /^(?=.{1,253}$)(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}$/u.test(value);
 }
 
-function approvedHost(hostname, allowedHosts) {
-  const host = String(hostname || "").toLowerCase().replace(/\.$/u, "");
-  return safeHostname(host) && allowedHosts.includes(host);
-}
-
-function safePublicHostname(hostname) {
-  const value = String(hostname || "").trim().toLowerCase().replace(/\.$/u, "");
-  if (!value || value === "localhost" || value.endsWith(".localhost") || value.endsWith(".local") || value.endsWith(".internal") || value.endsWith(".lan")) return false;
-  if (/^(?:\d{1,3}\.){3}\d{1,3}$/u.test(value) || value.includes(":")) return false;
-  return /^(?=.{1,253}$)(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}$/u.test(value);
-}
-
-function isAddressCandidate(value, key, rewriteFields) {
-  const text = value.trim();
-  if (/^(?:https?:\/\/|\/\/[^/])/iu.test(text)) return true;
-  return rewriteFields.has(key) && /^(?:\/(?!\/)|\.{1,2}\/|\?.+)/u.test(text);
-}
-
-async function boundedText(response, limit) {
-  const announced = Number(response.headers.get("content-length") || 0);
-  if (announced > limit) return null;
-  if (!response.body) return "";
-  const reader = response.body.getReader();
-  const chunks = [];
-  let size = 0;
-  try {
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      size += value.byteLength;
-      if (size > limit) { await reader.cancel(); return null; }
-      chunks.push(value);
-    }
-  } catch { return null; }
-  const bytes = new Uint8Array(size);
-  let offset = 0;
-  for (const chunk of chunks) { bytes.set(chunk, offset); offset += chunk.byteLength; }
-  return new TextDecoder().decode(bytes);
-}
-
-function summarizeJson(value, baseUrl, rewriteFields) {
-  const summary = { urlCount: 0, blockedUrlCount: 0, arrayItemCount: 0 };
-  function visit(node, key = "") {
-    if (Array.isArray(node)) {
-      summary.arrayItemCount += node.length;
-      for (const item of node) visit(item, key);
-      return;
-    }
-    if (node && typeof node === "object") {
-      for (const [childKey, childValue] of Object.entries(node)) visit(childValue, childKey);
-      return;
-    }
-    if (typeof node !== "string") return;
-    const valueText = node.trim();
-    const candidate = isAddressCandidate(valueText, key, rewriteFields);
-    if (!candidate || !valueText) return;
-    summary.urlCount++;
-    try {
-      const target = new URL(valueText, baseUrl);
-      if (!(target.protocol === "http:" || target.protocol === "https:") || target.username || target.password || target.href.length > 2048 || !safePublicHostname(target.hostname)) summary.blockedUrlCount++;
-    } catch { summary.blockedUrlCount++; }
-  }
-  visit(value);
-  return summary;
-}
-
-async function fetchJsonSnapshot(resource, env) {
-  const allowedHosts = parseJsonList(resource.allowed_hosts).map((host) => String(host).toLowerCase());
-  let target;
-  try { target = new URL(resource.upstream_url); } catch { return { error: "UPSTREAM_NOT_APPROVED" }; }
-  const limit = Math.min(Number(resource.max_response_bytes || 2_097_152), Number(env.MAX_UPSTREAM_BYTES || 2_097_152));
-  for (let hop = 0; hop <= 3; hop++) {
-    if (target.protocol !== "https:" || target.username || target.password || !approvedHost(target.hostname, allowedHosts)) return { error: "UPSTREAM_REDIRECT_BLOCKED" };
-    let response;
-    try {
-      response = await fetch(target.href, {
-        method: "GET",
-        redirect: "manual",
-        headers: { accept: "application/json, text/*;q=0.9", "user-agent": "DTV-Member-Gateway/1.0" },
-        signal: AbortSignal.timeout(12_000),
-      });
-    } catch { return { error: "UPSTREAM_FETCH_FAILED" }; }
-    if ([301, 302, 303, 307, 308].includes(response.status)) {
-      const location = response.headers.get("location");
-      try { await response.body?.cancel(); } catch {}
-      if (!location || hop === 3) return { error: "UPSTREAM_REDIRECT_BLOCKED" };
-      try { target = new URL(location, target); } catch { return { error: "UPSTREAM_REDIRECT_BLOCKED", detail: "上游重定向地址无效。" }; }
-      if (target.protocol !== "https:" || target.username || target.password || !approvedHost(target.hostname, allowedHosts)) {
-        return { error: "UPSTREAM_REDIRECT_BLOCKED", detail: "上游重定向到未加入允许列表的域名：" + target.hostname };
-      }
-      continue;
-    }
-    if (!response.ok) { try { await response.body?.cancel(); } catch {} return { error: "UPSTREAM_HTTP_ERROR", detail: "上游返回 HTTP " + response.status + "。" }; }
-    const contentType = (response.headers.get("content-type") || "application/octet-stream").split(";")[0].trim().toLowerCase();
-    const text = await boundedText(response, limit);
-    if (text === null) return { error: "UPSTREAM_RESPONSE_TOO_LARGE" };
-    let value;
-    try { value = parseJsonWithComments(text); } catch { return { error: "UPSTREAM_JSON_INVALID", detail: "上游返回内容不是有效 JSON（响应类型：" + contentType + "）。" }; }
-    if (!value || typeof value !== "object") return { error: "UPSTREAM_JSON_INVALID" };
-    const summary = summarizeJson(value, target, new Set(parseJsonList(resource.rewrite_fields)));
-    return {
-      contentJson: text,
-      contentType,
-      urlCount: summary.urlCount,
-      blockedUrlCount: summary.blockedUrlCount,
-      arrayItemCount: summary.arrayItemCount,
-      topLevelKeys: Array.isArray(value) ? [] : Object.keys(value).slice(0, 30),
-      errorDetail: "",
-    };
-  }
-  return { error: "UPSTREAM_REDIRECT_BLOCKED", detail: "上游重定向次数过多。" };
-}
-
-async function syncJsonResource(db, env, resource) {
-  if (resource.type !== "json") return { id: resource.id, slug: resource.slug, ok: false, error: "RESOURCE_TYPE_NOT_JSON" };
-  const fetched = await fetchJsonSnapshot(resource, env);
-  if (fetched.error) {
-    const attemptedAt = nowIso();
-    const detail = fetched.detail || ({
-      UPSTREAM_FETCH_FAILED: "无法连接上游；请检查 DNS、TLS、网络或站点访问策略。",
-      UPSTREAM_JSON_INVALID: "上游返回内容不是有效 JSON。",
-      UPSTREAM_RESPONSE_TOO_LARGE: "上游响应超过资源大小限制。",
-      UPSTREAM_NOT_APPROVED: "上游域名未加入允许列表。",
-    }[fetched.error] || fetched.error);
-    await db.prepare("UPDATE resources SET last_sync_attempt_at = ?, last_sync_error = ? WHERE id = ?")
-      .bind(attemptedAt, detail.slice(0, 400), resource.id).run();
-    return { id: resource.id, slug: resource.slug, ok: false, error: fetched.error, error_detail: detail };
-  }
-  const syncedAt = nowIso();
-  await db.batch([
-    db.prepare("INSERT INTO resource_snapshots (resource_id, content_json, source_content_type, url_count, blocked_url_count, top_level_keys, synced_at) VALUES (?, ?, ?, ?, ?, ?, ?) ON CONFLICT(resource_id) DO UPDATE SET content_json = excluded.content_json, source_content_type = excluded.source_content_type, url_count = excluded.url_count, blocked_url_count = excluded.blocked_url_count, top_level_keys = excluded.top_level_keys, synced_at = excluded.synced_at")
-      .bind(resource.id, fetched.contentJson, fetched.contentType, fetched.urlCount, fetched.blockedUrlCount, JSON.stringify(fetched.topLevelKeys), syncedAt),
-    db.prepare("UPDATE resources SET last_sync_attempt_at = ?, last_sync_error = '' WHERE id = ?").bind(syncedAt, resource.id),
-  ]);
-  await audit(db, "admin", "resource.sync", "resource", resource.id, "JSON snapshot refreshed; urls=" + fetched.urlCount + "; blocked=" + fetched.blockedUrlCount);
-  return {
-    id: resource.id,
-    slug: resource.slug,
-    ok: true,
-    synced_at: syncedAt,
-    url_count: fetched.urlCount,
-    blocked_url_count: fetched.blockedUrlCount,
-    array_item_count: fetched.arrayItemCount,
-    unusable_url_count: fetched.blockedUrlCount,
-    top_level_keys: fetched.topLevelKeys,
-  };
-}
-
 function resourceInput(body) {
   const slug = String(body.slug || "").trim().toLowerCase();
   const type = String(body.type || "");
@@ -195,6 +50,7 @@ function resourceInput(body) {
   let upstream;
   try { upstream = new URL(upstreamUrl); } catch { return { error: "UPSTREAM_NOT_APPROVED" }; }
   if (!/^[a-z0-9][a-z0-9._-]{1,39}$/u.test(slug) || slug.includes("..")) return { error: "SLUG_INVALID" };
+  if (RESERVED_SLUGS.has(slug)) return { error: "SLUG_RESERVED" };
   if (!RESOURCE_TYPES.has(type)) return { error: "RESOURCE_TYPE_INVALID" };
   if (upstream.protocol !== "https:" || upstream.username || upstream.password || !safeHostname(upstream.hostname) || !allowedHosts.includes(upstream.hostname.toLowerCase()) || !allowedHosts.every(safeHostname)) {
     return { error: "UPSTREAM_NOT_APPROVED" };
@@ -207,6 +63,8 @@ function resourceInput(body) {
     maxBytes: Math.min(10_485_760, Math.max(1_024, requestedBytes)),
     enabled: body.enabled === false || body.enabled === 0 ? 0 : 1,
     name: String(body.name || slug).trim().slice(0, 80),
+    autoSync: body.auto_sync === undefined ? null : (body.auto_sync ? 1 : 0),
+    syncIntervalMinutes: Math.max(15, Math.min(10_080, Number(body.sync_interval_minutes || 360) || 360)),
   };
 }
 
@@ -316,7 +174,7 @@ async function saveResource(db, body, resourceId = null) {
   const value = resourceInput(body);
   if (value.error) return apiError(value.error, 400);
   const previous = resourceId
-    ? await db.prepare("SELECT upstream_url, allowed_hosts, type, max_response_bytes FROM resources WHERE id = ?").bind(resourceId).first()
+    ? await db.prepare("SELECT * FROM resources WHERE id = ?").bind(resourceId).first()
     : null;
   const resetSyncStatus = Boolean(previous && (
     previous.upstream_url !== value.upstreamUrl ||
@@ -324,18 +182,22 @@ async function saveResource(db, body, resourceId = null) {
     previous.type !== value.type ||
     Number(previous.max_response_bytes) !== value.maxBytes
   ));
+  const autoSync = value.autoSync === null
+    ? (Number(previous?.auto_sync ?? 1) ? 1 : 0)
+    : value.autoSync;
+  const syncInterval = value.syncIntervalMinutes;
   const id = resourceId || newId();
   const now = nowIso();
   const args = [value.slug, value.name, value.type, value.upstreamUrl, JSON.stringify(value.allowedHosts), value.mode,
-    JSON.stringify(value.rewriteFields), value.maxBytes, value.enabled, now];
+    JSON.stringify(value.rewriteFields), value.maxBytes, value.enabled, autoSync, syncInterval, now];
   try {
     if (resourceId) {
-      const result = await db.prepare("UPDATE resources SET slug = ?, name = ?, type = ?, upstream_url = ?, allowed_hosts = ?, delivery_mode = ?, rewrite_fields = ?, max_response_bytes = ?, enabled = ?, updated_at = ?, last_sync_attempt_at = CASE WHEN ? = 1 THEN NULL ELSE last_sync_attempt_at END, last_sync_error = CASE WHEN ? = 1 THEN '' ELSE last_sync_error END WHERE id = ?")
+      const result = await db.prepare("UPDATE resources SET slug = ?, name = ?, type = ?, upstream_url = ?, allowed_hosts = ?, delivery_mode = ?, rewrite_fields = ?, max_response_bytes = ?, enabled = ?, auto_sync = ?, sync_interval_minutes = ?, updated_at = ?, last_sync_attempt_at = CASE WHEN ? = 1 THEN NULL ELSE last_sync_attempt_at END, last_sync_error = CASE WHEN ? = 1 THEN '' ELSE last_sync_error END WHERE id = ?")
         .bind(...args, resetSyncStatus ? 1 : 0, resetSyncStatus ? 1 : 0, id).run();
       if (!result.meta.changes) return apiError("RESOURCE_NOT_FOUND", 404);
     } else {
-      await db.prepare("INSERT INTO resources (id, slug, name, type, upstream_url, allowed_hosts, delivery_mode, rewrite_fields, max_response_bytes, enabled, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)")
-        .bind(id, value.slug, value.name, value.type, value.upstreamUrl, JSON.stringify(value.allowedHosts), value.mode, JSON.stringify(value.rewriteFields), value.maxBytes, value.enabled, now, now).run();
+      await db.prepare("INSERT INTO resources (id, slug, name, type, upstream_url, allowed_hosts, delivery_mode, rewrite_fields, max_response_bytes, enabled, auto_sync, sync_interval_minutes, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)")
+        .bind(id, value.slug, value.name, value.type, value.upstreamUrl, JSON.stringify(value.allowedHosts), value.mode, JSON.stringify(value.rewriteFields), value.maxBytes, value.enabled, autoSync, syncInterval, now, now).run();
     }
   } catch {
     return apiError("RESOURCE_SAVE_FAILED", 409);
@@ -343,7 +205,7 @@ async function saveResource(db, body, resourceId = null) {
   if (resetSyncStatus) {
     await db.prepare("DELETE FROM resource_snapshots WHERE resource_id = ?").bind(id).run();
   }
-  await audit(db, "admin", resourceId ? "resource.update" : "resource.create", "resource", id, "slug=" + value.slug + "; enabled=" + value.enabled);
+  await audit(db, "admin", resourceId ? "resource.update" : "resource.create", "resource", id, "slug=" + value.slug + "; enabled=" + value.enabled + "; auto_sync=" + autoSync);
   return json({ id, slug: value.slug, name: value.name }, resourceId ? 200 : 201);
 }
 
@@ -461,15 +323,133 @@ export async function adminApi(request, env) {
     return body ? savePlan(env.DB, body, planPath[4]) : apiError("INVALID_REQUEST", 400);
   }
 
+  if (path === "/admin/api/resources/batch" && method === "POST") {
+    const body = await readJson(request, 131_072);
+    const lines = String(body?.text || "").split(/\r?\n/u).map((line) => line.trim()).filter(Boolean).slice(0, 30);
+    if (!lines.length) return apiError("INVALID_REQUEST", 400, "每行一条上游地址，支持 名称|地址 格式");
+    const resourceType = body?.type === "tv" ? "tv" : "json";
+    const results = [];
+    for (const line of lines) {
+      let name = "";
+      let urlText = line;
+      const separator = line.indexOf("|");
+      if (separator >= 0) { name = line.slice(0, separator).trim(); urlText = line.slice(separator + 1).trim(); }
+      let upstream;
+      try { upstream = new URL(urlText); } catch { results.push({ url: urlText, ok: false, error: "URL_INVALID" }); continue; }
+      if (upstream.protocol !== "https:") { results.push({ url: urlText, ok: false, error: "HTTPS_REQUIRED" }); continue; }
+      const hostBase = (upstream.hostname.split(".").filter(Boolean)[0] || "src").replace(/[^a-z0-9-]/giu, "").toLowerCase().slice(0, 24) || "src";
+      let slug = "";
+      for (let attempt = 0; attempt < 5 && !slug; attempt++) {
+        const candidate = hostBase + "-" + Math.random().toString(36).slice(2, 6);
+        const exists = await env.DB.prepare("SELECT 1 AS present FROM resources WHERE slug = ?").bind(candidate).first();
+        if (!exists) slug = candidate;
+      }
+      if (!slug) { results.push({ url: urlText, ok: false, error: "SLUG_EXHAUSTED" }); continue; }
+      const response = await saveResource(env.DB, {
+        slug,
+        name: name || upstream.hostname,
+        type: resourceType,
+        upstream_url: upstream.href,
+        allowed_hosts: [upstream.hostname],
+        max_response_bytes: 3_145_728,
+        auto_sync: body?.auto_sync === 0 ? 0 : 1,
+        sync_interval_minutes: Number(body?.sync_interval_minutes || 360),
+      });
+      const saved = await response.json();
+      if (!response.ok) { results.push({ url: urlText, ok: false, error: saved?.error?.code || "SAVE_FAILED" }); continue; }
+      let sync = null;
+      if (resourceType === "json") {
+        sync = await syncJsonResource(env.DB, env, {
+          id: saved.id, slug: saved.slug, name: saved.name, type: "json",
+          upstream_url: upstream.href, allowed_hosts: JSON.stringify([upstream.hostname]),
+          rewrite_fields: "[]", max_response_bytes: 3_145_728,
+        });
+      }
+      results.push({ url: urlText, slug: saved.slug, ok: true, sync_ok: sync ? sync.ok : null, sync_error: sync && !sync.ok ? (sync.error_detail || sync.error || "") : "" });
+    }
+    return json({ created: results.filter((row) => row.ok).length, failed: results.filter((row) => !row.ok).length, results });
+  }
+  if (path === "/admin/api/sync/log" && method === "GET") {
+    const result = await env.DB.prepare("SELECT l.id, l.resource_id, r.slug, r.name AS resource_name, l.started_at, l.ok, l.error, l.url_count, l.duration_ms FROM resource_sync_log l LEFT JOIN resources r ON r.id = l.resource_id ORDER BY l.started_at DESC LIMIT 100").all();
+    return json(result.results || []);
+  }
+
+  if (path === "/admin/api/catalog" && method === "GET") {
+    const result = await env.DB.prepare("SELECT id, name, url, kind, source, enabled, last_checked_at, last_ok, last_error, created_at FROM catalog_repositories ORDER BY created_at DESC LIMIT 500").all();
+    return json(result.results || []);
+  }
+  if (path === "/admin/api/catalog/import" && method === "POST") {
+    const body = await readJson(request, 131_072);
+    const kind = CATALOG_KINDS.has(body?.kind) ? body.kind : "single";
+    const source = String(body?.source || "manual").slice(0, 60);
+    const lines = String(body?.text || "").split(/\r?\n/u).map((line) => line.trim()).filter(Boolean).slice(0, 300);
+    if (!lines.length) return apiError("INVALID_REQUEST", 400, "每行一条地址，支持 名称|地址 格式");
+    let inserted = 0; let duplicate = 0; let invalid = 0;
+    const now = nowIso();
+    for (const line of lines) {
+      const separator = line.indexOf("|");
+      const name = separator > 0 ? line.slice(0, separator).trim().slice(0, 80) : "";
+      const urlText = (separator >= 0 ? line.slice(separator + 1) : line).trim();
+      let upstream;
+      try { upstream = new URL(urlText); } catch { invalid++; continue; }
+      if (upstream.protocol !== "https:" && upstream.protocol !== "http:") { invalid++; continue; }
+      if (!safeHostname(upstream.hostname)) { invalid++; continue; }
+      const result = await env.DB.prepare("INSERT INTO catalog_repositories (id, name, url, kind, source, enabled, created_at) VALUES (?, ?, ?, ?, ?, 1, ?) ON CONFLICT(url) DO NOTHING")
+        .bind(newId(), name, upstream.href, kind, source, now).run();
+      if (Number(result.meta.changes || 0) > 0) inserted++;
+      else duplicate++;
+    }
+    await audit(env.DB, "admin", "catalog.import", "catalog", source, "inserted=" + inserted + "; duplicate=" + duplicate + "; invalid=" + invalid);
+    return json({ inserted, duplicate, invalid });
+  }
+  if (path === "/admin/api/catalog/validate" && method === "POST") {
+    const rows = await env.DB.prepare("SELECT id, url, kind FROM catalog_repositories WHERE enabled = 1 AND (last_checked_at IS NULL OR last_checked_at < datetime('now', '-60 minutes')) ORDER BY last_checked_at ASC LIMIT 40").all();
+    const statements = [];
+    for (const row of rows.results || []) {
+      let ok = 0;
+      let detail = "";
+      try {
+        const response = await fetch(row.url, { method: "GET", redirect: "follow", headers: { "user-agent": "DTV-Member-Gateway/1.0" }, signal: AbortSignal.timeout(12_000) });
+        if (response.ok) {
+          const text = await boundedText(response, 262_144);
+          if (text === null) detail = "响应过大";
+          else if (row.kind === "live") {
+            if (/#EXTM3U/u.test(text)) ok = 1;
+            else detail = "不是有效的 M3U";
+          } else {
+            try { parseJsonWithComments(text); ok = 1; } catch { detail = "不是有效 JSON"; }
+          }
+        } else detail = "HTTP " + response.status;
+        try { await response.body?.cancel(); } catch {}
+      } catch (err) {
+        detail = String(err?.name || "FETCH_FAILED");
+      }
+      statements.push(env.DB.prepare("UPDATE catalog_repositories SET last_checked_at = ?, last_ok = ?, last_error = ? WHERE id = ?").bind(nowIso(), ok, detail.slice(0, 200), row.id));
+    }
+    if (statements.length) await env.DB.batch(statements);
+    return json({ checked: statements.length });
+  }
+  const catalogItemMatch = path.match(/^\/admin\/api\/catalog\/([0-9a-f-]{20,40})$/iu);
+  if (catalogItemMatch && method === "POST") {
+    const body = await readJson(request, 4096);
+    const result = await env.DB.prepare("UPDATE catalog_repositories SET enabled = ? WHERE id = ?").bind(body?.enabled ? 1 : 0, catalogItemMatch[1]).run();
+    if (!result.meta.changes) return apiError("CATALOG_NOT_FOUND", 404);
+    return json({ id: catalogItemMatch[1], enabled: body?.enabled ? 1 : 0 });
+  }
+  if (catalogItemMatch && method === "DELETE") {
+    const result = await env.DB.prepare("DELETE FROM catalog_repositories WHERE id = ?").bind(catalogItemMatch[1]).run();
+    if (!result.meta.changes) return apiError("CATALOG_NOT_FOUND", 404);
+    return json({ removed: true });
+  }
   if (path === "/admin/api/resources/sync" && method === "POST") {
-    const result = await env.DB.prepare("SELECT id, slug, type, upstream_url, allowed_hosts, rewrite_fields, max_response_bytes FROM resources WHERE type = 'json' AND enabled = 1 ORDER BY name LIMIT 10").all();
+    const result = await env.DB.prepare("SELECT id, slug, name, type, upstream_url, allowed_hosts, rewrite_fields, max_response_bytes, content_hash FROM resources WHERE type = 'json' AND enabled = 1 ORDER BY name LIMIT 10").all();
     const resources = result.results || [];
     const rows = await Promise.all(resources.map((resource) => syncJsonResource(env.DB, env, resource)));
     return json({ synced: rows.filter((row) => row.ok).length, failed: rows.filter((row) => !row.ok).length, results: rows });
   }
   const resourceSyncMatch = path.match(/^\/admin\/api\/resources\/([0-9a-f-]{20,40})\/sync$/iu);
   if (resourceSyncMatch && method === "POST") {
-    const resource = await env.DB.prepare("SELECT id, slug, type, upstream_url, allowed_hosts, rewrite_fields, max_response_bytes FROM resources WHERE id = ?")
+    const resource = await env.DB.prepare("SELECT id, slug, name, type, upstream_url, allowed_hosts, rewrite_fields, max_response_bytes, content_hash FROM resources WHERE id = ?")
       .bind(resourceSyncMatch[1]).first();
     if (!resource) return apiError("RESOURCE_NOT_FOUND", 404);
     const result = await syncJsonResource(env.DB, env, resource);

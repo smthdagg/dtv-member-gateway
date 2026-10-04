@@ -1,0 +1,2397 @@
+{
+  "summary": {
+    "generated_at": "2026-10-04T08:09:52.371Z",
+    "candidates": 297,
+    "valid": 78,
+    "multi": 7,
+    "single": 62,
+    "live": 9
+  },
+  "results": [
+    {
+      "url": "https://0.12yue.de5.net/tvbox/%E5%97%B7%E5%91%9C.json",
+      "name": "嗷呜",
+      "source": "de5.net",
+      "kind": "single",
+      "ok": true,
+      "sites": 78,
+      "lives": 7
+    },
+    {
+      "url": "https://0.12yue.de5.net/tvbox/X4%E8%8F%A0%E8%8F%9C%E5%9B%AD.json",
+      "name": "X4菠菜园",
+      "source": "de5.net",
+      "kind": "single",
+      "ok": true,
+      "sites": 56,
+      "lives": 1
+    },
+    {
+      "url": "https://0.12yue.de5.net/tvbox/%E9%A5%AD%E5%A4%AA%E7%A1%AC.json",
+      "name": "饭太硬",
+      "source": "de5.net",
+      "kind": "single",
+      "ok": true,
+      "sites": 48,
+      "lives": 6
+    },
+    {
+      "url": "https://0.12yue.de5.net/tvbox/%E7%8E%8B%E4%BA%8C%E5%B0%8F.json",
+      "name": "王二小",
+      "source": "de5.net",
+      "kind": "single",
+      "ok": true,
+      "sites": 96,
+      "lives": 2
+    },
+    {
+      "url": "https://0.12yue.de5.net/tvbox/%E6%B5%B7%E9%87%8F%E9%87%87%E9%9B%86%E8%81%9A%E5%90%88%E6%8E%A5%E5%8F%A3.json",
+      "name": "海量采集聚合接口",
+      "source": "de5.net",
+      "kind": "single",
+      "ok": true,
+      "sites": 285,
+      "lives": 0
+    },
+    {
+      "url": "https://0.12yue.de5.net/tvbox/%E6%B5%B7%E9%87%8F%E7%9B%B4%E6%92%AD%E7%BA%BF%E8%B7%AF.json",
+      "name": "海量直播线路",
+      "source": "de5.net",
+      "kind": "single",
+      "ok": true,
+      "sites": 0,
+      "lives": 188
+    },
+    {
+      "url": "https://0.12yue.de5.net/tvbox/X4%E8%8F%A0%E8%8F%9Cpro.json",
+      "name": "X4菠菜pro",
+      "source": "de5.net",
+      "kind": "single",
+      "ok": true,
+      "sites": 206,
+      "lives": 1
+    },
+    {
+      "url": "https://0.12yue.de5.net/tvbox/%E6%BD%87%E6%B4%92.json",
+      "name": "潇洒",
+      "source": "de5.net",
+      "kind": "single",
+      "ok": true,
+      "sites": 103,
+      "lives": 1
+    },
+    {
+      "url": "https://0.12yue.de5.net/tvbox/%E6%91%B8%E9%B1%BC.json",
+      "name": "摸鱼",
+      "source": "de5.net",
+      "kind": "single",
+      "ok": true,
+      "sites": 110,
+      "lives": 1
+    },
+    {
+      "url": "https://nos.netease.com/ysf/3d75a78a0fc7ede372c03598d6d10367.m3u",
+      "name": "范明明需开启V6网络.m3u",
+      "source": "de5.livelist",
+      "kind": "live",
+      "ok": true,
+      "channels": 67
+    },
+    {
+      "url": "https://0.12yue.de5.net/tvbox/%E6%B5%B7%E9%87%8Fpy%E8%81%9A%E5%90%88%E6%8E%A5%E5%8F%A3.json",
+      "name": "海量py聚合接口",
+      "source": "de5.net",
+      "kind": "single",
+      "ok": true,
+      "sites": 317,
+      "lives": 0
+    },
+    {
+      "url": "https://0.12yue.de5.net/tvbox/%E6%B5%B7%E9%87%8F%E7%9B%B4%E6%92%AD%E8%81%9A%E5%90%88%E6%8E%A5%E5%8F%A3.json",
+      "name": "海量直播聚合接口",
+      "source": "de5.net",
+      "kind": "single",
+      "ok": true,
+      "sites": 0,
+      "lives": 188
+    },
+    {
+      "url": "https://0.12yue.de5.net/tvbox/X4%E5%B0%91%E5%84%BF%E9%A2%91%E9%81%93.json",
+      "name": "X4少儿频道",
+      "source": "de5.net",
+      "kind": "single",
+      "ok": true,
+      "sites": 25,
+      "lives": 0
+    },
+    {
+      "url": "https://0.12yue.de5.net/tvbox/X4%E6%9B%B4%E6%96%B0%E4%B8%93%E7%94%A8%E6%8E%A5%E5%8F%A3.json",
+      "name": "X4更新专用接口",
+      "source": "de5.net",
+      "kind": "single",
+      "ok": true,
+      "sites": 11,
+      "lives": 1
+    },
+    {
+      "url": "https://0.12yue.de5.net/tvbox/%E6%9B%B4%E6%96%B0%E4%B8%93%E7%94%A8%E6%8E%A5%E5%8F%A3.json",
+      "name": "更新专用接口",
+      "source": "de5.apilinks",
+      "kind": "single",
+      "ok": true,
+      "sites": 11,
+      "lives": 1
+    },
+    {
+      "url": "http://193.123.86.190:14888/TV/iptv.php",
+      "name": "综合直播.php",
+      "source": "de5.livelist",
+      "kind": "live",
+      "ok": true,
+      "channels": 222
+    },
+    {
+      "url": "https://0.12yue.de5.net/5/x4pro.json",
+      "name": "菠菜pro",
+      "source": "de5.apilinks",
+      "kind": "single",
+      "ok": true,
+      "sites": 206,
+      "lives": 1
+    },
+    {
+      "url": "http://www.xn--sss604efuw.art/tv",
+      "name": "饭太硬",
+      "source": "de5.apilinks",
+      "kind": "single",
+      "ok": false
+    },
+    {
+      "url": "https://cdn.jsdelivr.net/gh/Guovin/iptv-api@gd/output/result.m3u",
+      "name": "Guovin.m3u",
+      "source": "de5.livelist",
+      "kind": "live",
+      "ok": true,
+      "channels": 1619
+    },
+    {
+      "url": "http://fty.xxooo.cf/tv",
+      "name": "饭太硬",
+      "source": "de5.apilinks",
+      "kind": "single",
+      "ok": false,
+      "error": "fetch failed"
+    },
+    {
+      "url": "https://sub.ottiptv.cc/yylunbo.m3u",
+      "name": "YY轮播.m3u",
+      "source": "de5.livelist",
+      "kind": "live",
+      "ok": true,
+      "channels": 532
+    },
+    {
+      "url": "https://sub.ottiptv.cc/bililive.m3u",
+      "name": "B站直播.m3u",
+      "source": "de5.livelist",
+      "kind": "live",
+      "ok": true,
+      "channels": 865
+    },
+    {
+      "url": "https://9763.kstore.vip/aowu.json",
+      "name": "嗷呜",
+      "source": "de5.apilinks",
+      "kind": "single",
+      "ok": true,
+      "sites": 78,
+      "lives": 7
+    },
+    {
+      "url": "https://9877.kstore.space/single.json",
+      "name": "潇洒",
+      "source": "de5.apilinks",
+      "kind": "single",
+      "ok": false,
+      "error": "HTTP 403"
+    },
+    {
+      "url": "https://9877.kstore.space/AnotherD/api.json",
+      "name": "潇洒",
+      "source": "de5.apilinks",
+      "kind": "single",
+      "ok": false,
+      "error": "HTTP 404"
+    },
+    {
+      "url": "https://sub.ottiptv.cc/douyuyqk.m3u",
+      "name": "斗鱼一起看.m3u",
+      "source": "de5.livelist",
+      "kind": "live",
+      "ok": true,
+      "channels": 937
+    },
+    {
+      "url": "https://9877.kstore.space/one.json",
+      "name": "潇洒",
+      "source": "de5.apilinks",
+      "kind": "single",
+      "ok": false,
+      "error": "HTTP 404"
+    },
+    {
+      "url": "https://sub.ottiptv.cc/huyayqk.m3u",
+      "name": "虎牙一起看.m3u",
+      "source": "de5.livelist",
+      "kind": "live",
+      "ok": true,
+      "channels": 1105
+    },
+    {
+      "url": "https://9877.kstore.space/ONE/one.json",
+      "name": "潇洒",
+      "source": "de5.apilinks",
+      "kind": "single",
+      "ok": false,
+      "error": "HTTP 404"
+    },
+    {
+      "url": "https://9280.kstore.vip/aiwex.json",
+      "name": "王二小",
+      "source": "de5.apilinks",
+      "kind": "single",
+      "ok": true,
+      "sites": 96,
+      "lives": 2
+    },
+    {
+      "url": "http://www.xn--sss604efuw.net/tv",
+      "name": "饭太硬",
+      "source": "de5.apilinks",
+      "kind": "single",
+      "ok": false
+    },
+    {
+      "url": "https://9280.kstore.space/aiwex.json",
+      "name": "王二小",
+      "source": "de5.apilinks",
+      "kind": "single",
+      "ok": true,
+      "sites": 96,
+      "lives": 2
+    },
+    {
+      "url": "http://itv666.cc/aowu/config.webp",
+      "name": "嗷呜",
+      "source": "de5.apilinks",
+      "kind": "single",
+      "ok": false,
+      "error": "HTTP 403"
+    },
+    {
+      "url": "http://www.xn--nsr30bl8nb2kyt7a8vs.top/tv",
+      "name": "嗷呜",
+      "source": "de5.apilinks",
+      "kind": "single",
+      "ok": false,
+      "error": "HTTP 403"
+    },
+    {
+      "url": "https://cdn.jsdelivr.net/gh/qist/tvbox@main/0707.json",
+      "name": "0707",
+      "source": "qist/tvbox",
+      "kind": "single",
+      "ok": false,
+      "error": "HTTP 404"
+    },
+    {
+      "url": "https://ghproxy.monkeyray.net/raw.githubusercontent.com/yoursmile66/TVBox/main/XC.json",
+      "name": "南风",
+      "source": "de5.apilinks",
+      "kind": "single",
+      "ok": false
+    },
+    {
+      "url": "https://cdn.jsdelivr.net/gh/qist/tvbox@main/0827.json",
+      "name": "0827",
+      "source": "qist/tvbox",
+      "kind": "single",
+      "ok": false,
+      "error": "HTTP 404"
+    },
+    {
+      "url": "https://cdn.jsdelivr.net/gh/qist/tvbox@main/9918.json",
+      "name": "9918",
+      "source": "qist/tvbox",
+      "kind": "single",
+      "ok": false,
+      "error": "HTTP 404"
+    },
+    {
+      "url": "https://cdn.jsdelivr.net/gh/qist/tvbox@main/0825.json",
+      "name": "0825",
+      "source": "qist/tvbox",
+      "kind": "single",
+      "ok": false,
+      "error": "HTTP 404"
+    },
+    {
+      "url": "https://cdn.jsdelivr.net/gh/qist/tvbox@main/dianshi.json",
+      "name": "dianshi",
+      "source": "qist/tvbox",
+      "kind": "single",
+      "ok": false,
+      "error": "HTTP 404"
+    },
+    {
+      "url": "https://cdn.jsdelivr.net/gh/qist/tvbox@main/js.json",
+      "name": "js",
+      "source": "qist/tvbox",
+      "kind": "single",
+      "ok": false,
+      "error": "HTTP 404"
+    },
+    {
+      "url": "https://cdn.jsdelivr.net/gh/qist/tvbox@main/XYQ.json",
+      "name": "XYQ",
+      "source": "qist/tvbox",
+      "kind": "single",
+      "ok": false,
+      "error": "HTTP 404"
+    },
+    {
+      "url": "https://cdn.jsdelivr.net/gh/qist/tvbox@main/0826.json",
+      "name": "0826",
+      "source": "qist/tvbox",
+      "kind": "single",
+      "ok": false,
+      "error": "HTTP 404"
+    },
+    {
+      "url": "https://cdn.jsdelivr.net/gh/qist/tvbox@main/ITV.txt",
+      "name": "ITV",
+      "source": "qist/tvbox",
+      "kind": "single",
+      "ok": false,
+      "error": "HTTP 404"
+    },
+    {
+      "url": "http://fty.888484.xyz/tv",
+      "name": "饭太硬",
+      "source": "de5.apilinks",
+      "kind": "single",
+      "ok": false,
+      "error": "fetch failed"
+    },
+    {
+      "url": "http://fty.333232.xyz/tv",
+      "name": "饭太硬",
+      "source": "de5.apilinks",
+      "kind": "single",
+      "ok": false,
+      "error": "fetch failed"
+    },
+    {
+      "url": "https://cdn.jsdelivr.net/gh/qist/tvbox@main/jsm.json",
+      "name": "jsm",
+      "source": "qist/tvbox",
+      "kind": "single",
+      "ok": false,
+      "error": "HTTP 404"
+    },
+    {
+      "url": "https://cdn.jsdelivr.net/gh/qist/tvbox@main/list.txt",
+      "name": "list",
+      "source": "qist/tvbox",
+      "kind": "single",
+      "ok": false,
+      "error": "HTTP 404"
+    },
+    {
+      "url": "https://cdn.jsdelivr.net/gh/qist/tvbox@main/listx.txt",
+      "name": "listx",
+      "source": "qist/tvbox",
+      "kind": "single",
+      "ok": false,
+      "error": "HTTP 404"
+    },
+    {
+      "url": "https://cdn.jsdelivr.net/gh/qist/tvbox@main/367.json",
+      "name": "367",
+      "source": "qist/tvbox",
+      "kind": "single",
+      "ok": false,
+      "error": "HTTP 404"
+    },
+    {
+      "url": "https://cdn.jsdelivr.net/gh/qist/tvbox@main/radio.txt",
+      "name": "radio",
+      "source": "qist/tvbox",
+      "kind": "single",
+      "ok": false,
+      "error": "HTTP 404"
+    },
+    {
+      "url": "https://cdn.jsdelivr.net/gh/qist/tvbox@main/tvboxtv.txt",
+      "name": "tvboxtv",
+      "source": "qist/tvbox",
+      "kind": "single",
+      "ok": false,
+      "error": "HTTP 404"
+    },
+    {
+      "url": "https://cdn.jsdelivr.net/gh/qist/tvbox@main/tvlive.txt",
+      "name": "tvlive",
+      "source": "qist/tvbox",
+      "kind": "single",
+      "ok": false,
+      "error": "HTTP 404"
+    },
+    {
+      "url": "https://cdn.jsdelivr.net/gh/qist/tvbox@main/99188.json",
+      "name": "99188",
+      "source": "qist/tvbox",
+      "kind": "single",
+      "ok": false,
+      "error": "HTTP 404"
+    },
+    {
+      "url": "https://zoo.ink/wp-json/oembed/1.0/embed?url=https%3A%2F%2Fzoo.ink%2Ftvbox.html&format=xml",
+      "name": "",
+      "source": "zoo.ink",
+      "kind": "single",
+      "ok": false
+    },
+    {
+      "url": "https://cdn.jsdelivr.net/gh/qist/tvbox@main/yo21.txt",
+      "name": "yo21",
+      "source": "qist/tvbox",
+      "kind": "single",
+      "ok": false,
+      "error": "HTTP 404"
+    },
+    {
+      "url": "https://zoo.ink/wp-json",
+      "name": "",
+      "source": "zoo.ink",
+      "kind": "single",
+      "ok": false
+    },
+    {
+      "url": "https://zoo.ink/wp-json/wp/v2/pages/354",
+      "name": "",
+      "source": "zoo.ink",
+      "kind": "single",
+      "ok": false
+    },
+    {
+      "url": "https://cdn.jsdelivr.net/gh/qist/tvbox@main/zb.txt",
+      "name": "zb",
+      "source": "qist/tvbox",
+      "kind": "single",
+      "ok": false,
+      "error": "HTTP 404"
+    },
+    {
+      "url": "https://cdn.jsdelivr.net/gh/qist/tvbox@main/fty.json",
+      "name": "fty",
+      "source": "qist/tvbox",
+      "kind": "single",
+      "ok": false,
+      "error": "HTTP 404"
+    },
+    {
+      "url": "https://www.kdmao.com/category/tv",
+      "name": "",
+      "source": "zoo.ink",
+      "kind": "single",
+      "ok": false
+    },
+    {
+      "url": "http://home.jundie.top:81/top98.json",
+      "name": "",
+      "source": "zoo.ink",
+      "kind": "single",
+      "ok": true,
+      "sites": 24,
+      "lives": 2
+    },
+    {
+      "url": "https://9280.kstore.vip/newwex.json",
+      "name": "",
+      "source": "zoo.ink",
+      "kind": "single",
+      "ok": true,
+      "sites": 96,
+      "lives": 2
+    },
+    {
+      "url": "https://9xi4o.tk/0725.json",
+      "name": "",
+      "source": "zoo.ink",
+      "kind": "single",
+      "ok": false,
+      "error": "fetch failed"
+    },
+    {
+      "url": "https://700sjro44343.vicp.fun/eggp/0211/tv.json",
+      "name": "",
+      "source": "zoo.ink",
+      "kind": "single",
+      "ok": false
+    },
+    {
+      "url": "http://xhztv.top/4k.json",
+      "name": "",
+      "source": "zoo.ink",
+      "kind": "single",
+      "ok": false
+    },
+    {
+      "url": "https://www.xhztv.pro/",
+      "name": "",
+      "source": "zoo.ink",
+      "kind": "single",
+      "ok": false
+    },
+    {
+      "url": "https://github.com/qist/tvbox",
+      "name": "",
+      "source": "zoo.ink",
+      "kind": "single",
+      "ok": false
+    },
+    {
+      "url": "https://tv.xn--yhqu5zs87a.top/",
+      "name": "",
+      "source": "zoo.ink",
+      "kind": "single",
+      "ok": false,
+      "error": "HTTP 520"
+    },
+    {
+      "url": "https://9280.kstore.space/newwex.json",
+      "name": "",
+      "source": "zoo.ink",
+      "kind": "single",
+      "ok": true,
+      "sites": 96,
+      "lives": 2
+    },
+    {
+      "url": "http://xhztv.top/xhz",
+      "name": "",
+      "source": "zoo.ink",
+      "kind": "single",
+      "ok": false
+    },
+    {
+      "url": "http://fmys.top/fmys.json",
+      "name": "",
+      "source": "zoo.ink",
+      "kind": "single",
+      "ok": false,
+      "error": "HTTP 404"
+    },
+    {
+      "url": "https://qist.wyfc.qzz.io/fty.json",
+      "name": "",
+      "source": "zoo.ink",
+      "kind": "single",
+      "ok": true,
+      "sites": 48,
+      "lives": 6
+    },
+    {
+      "url": "https://www.iyouhun.com/tv/wex",
+      "name": "",
+      "source": "zoo.ink",
+      "kind": "single",
+      "ok": true,
+      "sites": 63,
+      "lives": 2
+    },
+    {
+      "url": "http://124.223.214.31:8/api.json",
+      "name": "",
+      "source": "zoo.ink",
+      "kind": "single",
+      "ok": true,
+      "sites": 2,
+      "lives": 1
+    },
+    {
+      "url": "https://qist.wyfc.qzz.io/xiaosa/api.json",
+      "name": "",
+      "source": "zoo.ink",
+      "kind": "single",
+      "ok": true,
+      "sites": 103,
+      "lives": 1
+    },
+    {
+      "url": "https://700sjro44343.vicp.fun/vip/vip/tv.json",
+      "name": "",
+      "source": "zoo.ink",
+      "kind": "single",
+      "ok": false
+    },
+    {
+      "url": "http://47.96.82.41:5188/api.json",
+      "name": "",
+      "source": "zoo.ink",
+      "kind": "single",
+      "ok": true,
+      "sites": 90,
+      "lives": 1
+    },
+    {
+      "url": "https://cdn.jsdelivr.net/gh/qist/tvbox@main/0821.json",
+      "name": "0821",
+      "source": "qist/tvbox",
+      "kind": "single",
+      "ok": false,
+      "error": "HTTP 404"
+    },
+    {
+      "url": "https://cdn.jsdelivr.net/gh/liu673cn/box@main/m.json",
+      "name": "",
+      "source": "zoo.ink",
+      "kind": "single",
+      "ok": false
+    },
+    {
+      "url": "https://9280.kstore.space/wex.json",
+      "name": "",
+      "source": "zoo.ink",
+      "kind": "single",
+      "ok": true,
+      "sites": 63,
+      "lives": 2
+    },
+    {
+      "url": "https://6800.kstore.vip/fish.json",
+      "name": "",
+      "source": "zoo.ink",
+      "kind": "single",
+      "ok": false,
+      "error": "HTTP 401"
+    },
+    {
+      "url": "https://raw.liucn.cc/box/m.json",
+      "name": "",
+      "source": "zoo.ink",
+      "kind": "single",
+      "ok": false
+    },
+    {
+      "url": "https://g.33445500.xyz/https:/raw.githubusercontent.com/qist/tvbox/refs/heads/master/jsm.json",
+      "name": "",
+      "source": "zoo.ink",
+      "kind": "single",
+      "ok": true,
+      "sites": 149,
+      "lives": 3
+    },
+    {
+      "url": "https://gh-proxy.com/https:/raw.githubusercontent.com/xmbjm/svip/refs/heads/main/svip.json",
+      "name": "",
+      "source": "zoo.ink",
+      "kind": "single",
+      "ok": false
+    },
+    {
+      "url": "https://tv.203511.xyz/0821.json",
+      "name": "",
+      "source": "zoo.ink",
+      "kind": "single",
+      "ok": true,
+      "sites": 28,
+      "lives": 8
+    },
+    {
+      "url": "https://raw.gitcode.com/jvftibcs-jbduyh/021/raw/main/18.json",
+      "name": "",
+      "source": "zoo.ink",
+      "kind": "single",
+      "ok": false,
+      "error": "HTTP 403"
+    },
+    {
+      "url": "https://g.33445500.xyz/https:/raw.githubusercontent.com/qist/tvbox/refs/heads/master/xiaosa/api.json",
+      "name": "",
+      "source": "zoo.ink",
+      "kind": "single",
+      "ok": true,
+      "sites": 103,
+      "lives": 1
+    },
+    {
+      "url": "https://bitbucket.org/xduo/duoapi/raw/master/xpg.json",
+      "name": "",
+      "source": "zoo.ink",
+      "kind": "single",
+      "ok": false,
+      "error": "HTTP 404"
+    },
+    {
+      "url": "https://tv.xn--9swa.com/",
+      "name": "",
+      "source": "zoo.ink",
+      "kind": "single",
+      "ok": false,
+      "error": "fetch failed"
+    },
+    {
+      "url": "https://raw.githubusercontent.com/Lightconer/tvbox-ysc-config/main/output/feimao.json",
+      "name": "",
+      "source": "github:singgeoi/personal-tvbox",
+      "kind": "single",
+      "ok": true,
+      "sites": 39,
+      "lives": 2
+    },
+    {
+      "url": "https://raw.githubusercontent.com/singgeoi/personal-tvbox/main/subscriptions/curated.json",
+      "name": "",
+      "source": "github:singgeoi/personal-tvbox",
+      "kind": "single",
+      "ok": true,
+      "sites": 10,
+      "lives": 1
+    },
+    {
+      "url": "https://github.com/singgeoi/personal-tvbox/actions/workflows/refresh.yml",
+      "name": "",
+      "source": "github:singgeoi/personal-tvbox",
+      "kind": "single",
+      "ok": false
+    },
+    {
+      "url": "http://tvbox.xn--4kq62z5rby2qupq9ub.top/",
+      "name": "",
+      "source": "zoo.ink",
+      "kind": "single",
+      "ok": false,
+      "error": "fetch failed"
+    },
+    {
+      "url": "https://raw.githubusercontent.com/Lightconer/tvbox-ysc-config/main/output/wangerxiao.json",
+      "name": "",
+      "source": "github:singgeoi/personal-tvbox",
+      "kind": "single",
+      "ok": true,
+      "sites": 63,
+      "lives": 2
+    },
+    {
+      "url": "https://6296.kstore.vip/facat.json",
+      "name": "",
+      "source": "github:singgeoi/personal-tvbox",
+      "kind": "single",
+      "ok": false,
+      "error": "HTTP 401"
+    },
+    {
+      "url": "http://550.3vcn.work/wdjyys.json",
+      "name": "",
+      "source": "zoo.ink",
+      "kind": "single",
+      "ok": true,
+      "sites": 106,
+      "lives": 1
+    },
+    {
+      "url": "http://tv.999888987.xyz/",
+      "name": "",
+      "source": "zoo.ink",
+      "kind": "single",
+      "ok": false,
+      "error": "fetch failed"
+    },
+    {
+      "url": "http://www.xn--sss604efuw.xyz/tv",
+      "name": "",
+      "source": "github:singgeoi/personal-tvbox",
+      "kind": "single",
+      "ok": false,
+      "error": "fetch failed"
+    },
+    {
+      "url": "https://raw.githubusercontent.com/Lightconer/tvbox-ysc-config/main/output/4k.json",
+      "name": "",
+      "source": "github:singgeoi/personal-tvbox",
+      "kind": "single",
+      "ok": true,
+      "sites": 53,
+      "lives": 2
+    },
+    {
+      "url": "http://ok321.top/tv",
+      "name": "",
+      "source": "github:singgeoi/personal-tvbox",
+      "kind": "single",
+      "ok": false,
+      "error": "fetch failed"
+    },
+    {
+      "url": "http://tv.nxog.top/m",
+      "name": "",
+      "source": "github:singgeoi/personal-tvbox",
+      "kind": "single",
+      "ok": false,
+      "error": "HTTP 444"
+    },
+    {
+      "url": "https://raw.githubusercontent.com/Lightconer/tvbox-ysc-config/main/output/ouge.json",
+      "name": "",
+      "source": "github:singgeoi/personal-tvbox",
+      "kind": "single",
+      "ok": true,
+      "sites": 12,
+      "lives": 2
+    },
+    {
+      "url": "http://www.xn--sss604efuw.cc/tv",
+      "name": "",
+      "source": "github:singgeoi/personal-tvbox",
+      "kind": "single",
+      "ok": false
+    },
+    {
+      "url": "http://cdn.qiaoji8.com/tvbox.json",
+      "name": "",
+      "source": "github:singgeoi/personal-tvbox",
+      "kind": "single",
+      "ok": false,
+      "error": "fetch failed"
+    },
+    {
+      "url": "http://xn--z7x900a.net/tv",
+      "name": "",
+      "source": "github:singgeoi/personal-tvbox",
+      "kind": "single",
+      "ok": true,
+      "sites": 39,
+      "lives": 2
+    },
+    {
+      "url": "https://raw.githubusercontent.com/qist/tvbox/master/0821.json",
+      "name": "",
+      "source": "github:singgeoi/personal-tvbox",
+      "kind": "single",
+      "ok": true,
+      "sites": 86,
+      "lives": 16
+    },
+    {
+      "url": "https://raw.githubusercontent.com/qist/tvbox/master/0822.json",
+      "name": "",
+      "source": "github:singgeoi/personal-tvbox",
+      "kind": "single",
+      "ok": false,
+      "error": "HTTP 404"
+    },
+    {
+      "url": "https://yinghezhinan.com/tvbox-jsonlist",
+      "name": "",
+      "source": "zoo.ink",
+      "kind": "single",
+      "ok": false,
+      "error": "fetch failed"
+    },
+    {
+      "url": "https://raw.githubusercontent.com/qist/tvbox/master/0825.json",
+      "name": "",
+      "source": "github:singgeoi/personal-tvbox",
+      "kind": "single",
+      "ok": true,
+      "sites": 135,
+      "lives": 5
+    },
+    {
+      "url": "https://raw.githubusercontent.com/qist/tvbox/master/0826.json",
+      "name": "",
+      "source": "github:singgeoi/personal-tvbox",
+      "kind": "single",
+      "ok": true,
+      "sites": 54,
+      "lives": 4
+    },
+    {
+      "url": "https://raw.githubusercontent.com/qist/tvbox/master/0827.json",
+      "name": "",
+      "source": "github:singgeoi/personal-tvbox",
+      "kind": "single",
+      "ok": true,
+      "sites": 33,
+      "lives": 0
+    },
+    {
+      "url": "http://www.mpanso.com/%E5%B0%8F%E7%B1%B3/DEMO.json",
+      "name": "",
+      "source": "github:singgeoi/personal-tvbox",
+      "kind": "single",
+      "ok": false,
+      "error": "HTTP 404"
+    },
+    {
+      "url": "https://d.kstore.dev/download/9280/wex.json",
+      "name": "",
+      "source": "github:singgeoi/personal-tvbox",
+      "kind": "single",
+      "ok": true,
+      "sites": 63,
+      "lives": 2
+    },
+    {
+      "url": "https://www.mpanso.com/%E5%B0%8F%E7%B1%B3/DEMO.json",
+      "name": "",
+      "source": "github:singgeoi/personal-tvbox",
+      "kind": "single",
+      "ok": false,
+      "error": "HTTP 404"
+    },
+    {
+      "url": "https://raw.githubusercontent.com/qist/tvbox/master/js.json",
+      "name": "",
+      "source": "github:singgeoi/personal-tvbox",
+      "kind": "single",
+      "ok": true,
+      "sites": 298,
+      "lives": 2
+    },
+    {
+      "url": "https://raw.githubusercontent.com/qist/tvbox/master/jsm.json",
+      "name": "",
+      "source": "github:singgeoi/personal-tvbox",
+      "kind": "single",
+      "ok": true,
+      "sites": 149,
+      "lives": 3
+    },
+    {
+      "url": "https://raw.githubusercontent.com/qist/tvbox/master/0828.json",
+      "name": "",
+      "source": "github:singgeoi/personal-tvbox",
+      "kind": "single",
+      "ok": false,
+      "error": "HTTP 404"
+    },
+    {
+      "url": "https://raw.githubusercontent.com/qist/tvbox/master/XBPQ.json",
+      "name": "",
+      "source": "github:singgeoi/personal-tvbox",
+      "kind": "single",
+      "ok": false,
+      "error": "HTTP 404"
+    },
+    {
+      "url": "https://raw.githubusercontent.com/qist/tvbox/master/XYQ.json",
+      "name": "",
+      "source": "github:singgeoi/personal-tvbox",
+      "kind": "single",
+      "ok": false
+    },
+    {
+      "url": "https://raw.githubusercontent.com/qist/tvbox/master/xiaosa/api.json",
+      "name": "",
+      "source": "github:singgeoi/personal-tvbox",
+      "kind": "single",
+      "ok": true,
+      "sites": 103,
+      "lives": 1
+    },
+    {
+      "url": "https://fty.888484.xyz/tv",
+      "name": "",
+      "source": "zoo.ink",
+      "kind": "single",
+      "ok": false,
+      "error": "fetch failed"
+    },
+    {
+      "url": "https://raw.githubusercontent.com/qist/tvbox/master/fty.json",
+      "name": "",
+      "source": "github:singgeoi/personal-tvbox",
+      "kind": "single",
+      "ok": true,
+      "sites": 48,
+      "lives": 6
+    },
+    {
+      "url": "https://raw.githubusercontent.com/lm317379829/PyramidStore/pyramid/py.json",
+      "name": "",
+      "source": "github:singgeoi/personal-tvbox",
+      "kind": "single",
+      "ok": false,
+      "error": "HTTP 404"
+    },
+    {
+      "url": "https://agit.ai/Yoursmile7/TVBox/raw/branch/master/XC.json",
+      "name": "",
+      "source": "github:singgeoi/personal-tvbox",
+      "kind": "single",
+      "ok": false
+    },
+    {
+      "url": "https://raw.githubusercontent.com/singgeoi/personal-tvbox/main/subscriptions/vod.json",
+      "name": "",
+      "source": "github:singgeoi/personal-tvbox",
+      "kind": "multi",
+      "ok": true,
+      "entries": 18
+    },
+    {
+      "url": "https://raw.githubusercontent.com/singgeoi/personal-tvbox/main/subscriptions/live.m3u",
+      "name": "",
+      "source": "github:singgeoi/personal-tvbox",
+      "kind": "live",
+      "ok": true,
+      "channels": 658
+    },
+    {
+      "url": "https://raw.githubusercontent.com/singgeoi/personal-tvbox/main/subscriptions/curated.json%60",
+      "name": "",
+      "source": "github:singgeoi/personal-tvbox",
+      "kind": "single",
+      "ok": false,
+      "error": "HTTP 404"
+    },
+    {
+      "url": "https://tvbox-public.gaoops.top/",
+      "name": "",
+      "source": "github:singgeoi/personal-tvbox",
+      "kind": "single",
+      "ok": true,
+      "sites": 52,
+      "lives": 7
+    },
+    {
+      "url": "http://miqk.cc/%E5%B0%8F%E7%B1%B3/DEMO.json",
+      "name": "",
+      "source": "github:singgeoi/personal-tvbox",
+      "kind": "single",
+      "ok": false,
+      "error": "fetch failed"
+    },
+    {
+      "url": "https://github.com/Lightconer/tvbox-ysc-config",
+      "name": "",
+      "source": "github:singgeoi/personal-tvbox",
+      "kind": "single",
+      "ok": false
+    },
+    {
+      "url": "https://cdn.jsdelivr.net/gh/do1linux/tvbox-hub@main/multi.json",
+      "name": "",
+      "source": "github:do1linux/tvbox-hub",
+      "kind": "multi",
+      "ok": true,
+      "entries": 50
+    },
+    {
+      "url": "https://gh-proxy.com/https:/raw.githubusercontent.com/do1linux/tvbox-hub/main",
+      "name": "",
+      "source": "github:do1linux/tvbox-hub",
+      "kind": "single",
+      "ok": false,
+      "error": "HTTP 404"
+    },
+    {
+      "url": "https://github.com/mrgaoshuiquan/tvbox-config",
+      "name": "",
+      "source": "github:singgeoi/personal-tvbox",
+      "kind": "single",
+      "ok": false
+    },
+    {
+      "url": "http://xn--z7x900a.com/tv",
+      "name": "",
+      "source": "github:singgeoi/personal-tvbox",
+      "kind": "single",
+      "ok": false,
+      "error": "fetch failed"
+    },
+    {
+      "url": "https://cdn.jsdelivr.net/gh/do1linux/tvbox-hub@main",
+      "name": "",
+      "source": "github:do1linux/tvbox-hub",
+      "kind": "single",
+      "ok": false,
+      "error": "HTTP 400"
+    },
+    {
+      "url": "https://cdn.jsdelivr.net/gh/do1linux/tvbox-hub@main/single.json",
+      "name": "",
+      "source": "github:do1linux/tvbox-hub",
+      "kind": "single",
+      "ok": true,
+      "sites": 1711,
+      "lives": 0
+    },
+    {
+      "url": "https://ghproxy.net/https:/raw.githubusercontent.com/do1linux/tvbox-hub/main",
+      "name": "",
+      "source": "github:do1linux/tvbox-hub",
+      "kind": "single",
+      "ok": false,
+      "error": "HTTP 403"
+    },
+    {
+      "url": "https://raw.githubusercontent.com/xiaohuya520/tvbox-dc/main/mybox-pure.json%60",
+      "name": "",
+      "source": "github:xiaohuya520/tvbox-dc",
+      "kind": "single",
+      "ok": false,
+      "error": "HTTP 404"
+    },
+    {
+      "url": "https://gh-proxy.com/https:/raw.githubusercontent.com/xiaohuya520/tvbox-dc/main/mybox-pure.json%60",
+      "name": "",
+      "source": "github:xiaohuya520/tvbox-dc",
+      "kind": "single",
+      "ok": false,
+      "error": "HTTP 404"
+    },
+    {
+      "url": "https://fastgit.cc/https:/raw.githubusercontent.com/do1linux/tvbox-hub/main",
+      "name": "",
+      "source": "github:do1linux/tvbox-hub",
+      "kind": "single",
+      "ok": false,
+      "error": "HTTP 404"
+    },
+    {
+      "url": "https://raw.githubusercontent.com/xiaohuya520/tvbox-dc/main/mybox-self.json%60",
+      "name": "",
+      "source": "github:xiaohuya520/tvbox-dc",
+      "kind": "single",
+      "ok": false,
+      "error": "HTTP 404"
+    },
+    {
+      "url": "https://gh-proxy.com/https:/raw.githubusercontent.com/xiaohuya520/tvbox-dc/main/mybox-self.json%60",
+      "name": "",
+      "source": "github:xiaohuya520/tvbox-dc",
+      "kind": "single",
+      "ok": false,
+      "error": "HTTP 404"
+    },
+    {
+      "url": "https://raw.githubusercontent.com/xiaohuya520/tvbox-dc/main/mybox.json%60",
+      "name": "",
+      "source": "github:xiaohuya520/tvbox-dc",
+      "kind": "single",
+      "ok": false,
+      "error": "HTTP 404"
+    },
+    {
+      "url": "https://raw.githubusercontent.com/xiaohuya520/tvbox-dc/main/dc.json%60",
+      "name": "",
+      "source": "github:xiaohuya520/tvbox-dc",
+      "kind": "single",
+      "ok": false,
+      "error": "HTTP 404"
+    },
+    {
+      "url": "https://raw.githubusercontent.com/xiaohuya520/tvbox-dc/main/dc_fast.json%60",
+      "name": "",
+      "source": "github:xiaohuya520/tvbox-dc",
+      "kind": "single",
+      "ok": false,
+      "error": "HTTP 404"
+    },
+    {
+      "url": "https://raw.githubusercontent.com/xiaohuya520/tvbox-dc/main/dc_full.json%60",
+      "name": "",
+      "source": "github:xiaohuya520/tvbox-dc",
+      "kind": "single",
+      "ok": false,
+      "error": "HTTP 404"
+    },
+    {
+      "url": "https://9280.kstore.vip/newwex.json%60",
+      "name": "",
+      "source": "github:xiaohuya520/tvbox-dc",
+      "kind": "single",
+      "ok": false,
+      "error": "HTTP 404"
+    },
+    {
+      "url": "https://gh-proxy.com/https:/raw.githubusercontent.com/xiaohuya520/tvbox-dc/main/dc.json%60",
+      "name": "",
+      "source": "github:xiaohuya520/tvbox-dc",
+      "kind": "single",
+      "ok": false,
+      "error": "HTTP 404"
+    },
+    {
+      "url": "https://9877.kstore.space/sun.json%60",
+      "name": "",
+      "source": "github:xiaohuya520/tvbox-dc",
+      "kind": "single",
+      "ok": false,
+      "error": "HTTP 404"
+    },
+    {
+      "url": "https://ghfast.top/https:/raw.githubusercontent.com/xiaohuya520/tvbox-dc/main/mybox-self.json%60",
+      "name": "",
+      "source": "github:xiaohuya520/tvbox-dc",
+      "kind": "single",
+      "ok": false,
+      "error": "HTTP 404"
+    },
+    {
+      "url": "http://www.xn--sss604efuw.com/tv",
+      "name": "",
+      "source": "github:singgeoi/personal-tvbox",
+      "kind": "single",
+      "ok": false,
+      "error": "fetch failed"
+    },
+    {
+      "url": "https://qist.wyfc.qzz.io/fty.json%60",
+      "name": "",
+      "source": "github:xiaohuya520/tvbox-dc",
+      "kind": "single",
+      "ok": false,
+      "error": "HTTP 404"
+    },
+    {
+      "url": "https://qist.wyfc.qzz.io/xiaosa/api.json%60",
+      "name": "",
+      "source": "github:xiaohuya520/tvbox-dc",
+      "kind": "single",
+      "ok": false,
+      "error": "HTTP 404"
+    },
+    {
+      "url": "https://cdn.jsdelivr.net/gh/xiaohuya520/tvbox-dc@main/mybox.json%60",
+      "name": "",
+      "source": "github:xiaohuya520/tvbox-dc",
+      "kind": "single",
+      "ok": false,
+      "error": "HTTP 404"
+    },
+    {
+      "url": "https://cdn.jsdelivr.net/gh/xiaohuya520/tvbox-dc@main/dc_full.json%60",
+      "name": "",
+      "source": "github:xiaohuya520/tvbox-dc",
+      "kind": "single",
+      "ok": false,
+      "error": "HTTP 404"
+    },
+    {
+      "url": "https://cdn.jsdelivr.net/gh/xiaohuya520/tvbox-dc@main/dc.json%60",
+      "name": "",
+      "source": "github:xiaohuya520/tvbox-dc",
+      "kind": "single",
+      "ok": false,
+      "error": "HTTP 404"
+    },
+    {
+      "url": "https://cdn.jsdelivr.net/gh/xiaohuya520/tvbox-dc@main/dc_fast.json%60",
+      "name": "",
+      "source": "github:xiaohuya520/tvbox-dc",
+      "kind": "single",
+      "ok": false,
+      "error": "HTTP 404"
+    },
+    {
+      "url": "http://pandown.pro/tvbox/tvbox.json",
+      "name": "",
+      "source": "github:singgeoi/personal-tvbox",
+      "kind": "single",
+      "ok": false,
+      "error": "fetch failed"
+    },
+    {
+      "url": "https://cdn.jsdelivr.net/gh/Lightconer/tvbox-ysc-config@main/output/4k.json%60",
+      "name": "",
+      "source": "github:xiaohuya520/tvbox-dc",
+      "kind": "single",
+      "ok": false,
+      "error": "HTTP 404"
+    },
+    {
+      "url": "https://raw.liucn.cc/box/m.json%60",
+      "name": "",
+      "source": "github:xiaohuya520/tvbox-dc",
+      "kind": "single",
+      "ok": false,
+      "error": "HTTP 404"
+    },
+    {
+      "url": "https://6800.kstore.vip/fish.json%60",
+      "name": "",
+      "source": "github:xiaohuya520/tvbox-dc",
+      "kind": "single",
+      "ok": false,
+      "error": "HTTP 404"
+    },
+    {
+      "url": "https://9763.kstore.vip/aowu.json%60",
+      "name": "",
+      "source": "github:xiaohuya520/tvbox-dc",
+      "kind": "single",
+      "ok": false,
+      "error": "HTTP 404"
+    },
+    {
+      "url": "https://www.ls660.com/TV/feimao.json%60",
+      "name": "",
+      "source": "github:xiaohuya520/tvbox-dc",
+      "kind": "single",
+      "ok": false,
+      "error": "fetch failed"
+    },
+    {
+      "url": "https://cdn.jsdelivr.net/gh/Lightconer/tvbox-ysc-config@main/output/ouge.json%60",
+      "name": "",
+      "source": "github:xiaohuya520/tvbox-dc",
+      "kind": "single",
+      "ok": false,
+      "error": "HTTP 404"
+    },
+    {
+      "url": "https://gitlab.com/noimank/tvbox/-/raw/main/tvbox1.json%60",
+      "name": "",
+      "source": "github:xiaohuya520/tvbox-dc",
+      "kind": "single",
+      "ok": false,
+      "error": "HTTP 404"
+    },
+    {
+      "url": "https://cdn.jsdelivr.net/gh/Lightconer/tvbox-ysc-config@main/output/feimao.json%60",
+      "name": "",
+      "source": "github:xiaohuya520/tvbox-dc",
+      "kind": "single",
+      "ok": false,
+      "error": "HTTP 404"
+    },
+    {
+      "url": "https://cdn.jsdelivr.net/gh/FongMi/CatVodSpider@main/json/config.json%60",
+      "name": "",
+      "source": "github:xiaohuya520/tvbox-dc",
+      "kind": "single",
+      "ok": false,
+      "error": "HTTP 404"
+    },
+    {
+      "url": "https://clun.top/fun.json%60",
+      "name": "",
+      "source": "github:xiaohuya520/tvbox-dc",
+      "kind": "single",
+      "ok": false
+    },
+    {
+      "url": "https://www.252035.xyz/p/jsm.json%60",
+      "name": "",
+      "source": "github:xiaohuya520/tvbox-dc",
+      "kind": "single",
+      "ok": false,
+      "error": "HTTP 404"
+    },
+    {
+      "url": "https://cdn.jsdelivr.net/gh/guot55/YGBH@main/vip2.json%60",
+      "name": "",
+      "source": "github:xiaohuya520/tvbox-dc",
+      "kind": "single",
+      "ok": false,
+      "error": "HTTP 404"
+    },
+    {
+      "url": "https://github.com/FongMi/TV",
+      "name": "",
+      "source": "github:cyj265/lanxing-vod",
+      "kind": "single",
+      "ok": false
+    },
+    {
+      "url": "https://example.com/tv.json",
+      "name": "",
+      "source": "github:baggiobatistuta/my-tvbox",
+      "kind": "single",
+      "ok": false,
+      "error": "HTTP 404"
+    },
+    {
+      "url": "https://fastly.jsdelivr.net/gh/baggiobatistuta/my-tvbox@main/output/dancang.json",
+      "name": "",
+      "source": "github:baggiobatistuta/my-tvbox",
+      "kind": "single",
+      "ok": true,
+      "sites": 7,
+      "lives": 8
+    },
+    {
+      "url": "https://gh-proxy.com/https:/raw.githubusercontent.com/wzh15802/tvbox/main/tv.json",
+      "name": "",
+      "source": "github:wzh15802/tvbox",
+      "kind": "multi",
+      "ok": true,
+      "entries": 64
+    },
+    {
+      "url": "https://fastly.jsdelivr.net/gh/%E7%94%A8%E6%88%B7%E5%90%8D/%E4%BB%93%E5%BA%93@%E5%88%86%E6%94%AF/%E8%B7%AF%E5%BE%84.json",
+      "name": "",
+      "source": "github:baggiobatistuta/my-tvbox",
+      "kind": "single",
+      "ok": false,
+      "error": "HTTP 400"
+    },
+    {
+      "url": "https://github.com/CatVodTV/TVBox",
+      "name": "",
+      "source": "github:cyj265/lanxing-vod",
+      "kind": "single",
+      "ok": false
+    },
+    {
+      "url": "https://github.com/Zhou-Li-Bin/Tvbox-QingNing/pulls",
+      "name": "",
+      "source": "github:Zhou-Li-Bin/Tvbox-QingNing",
+      "kind": "single",
+      "ok": false
+    },
+    {
+      "url": "https://www.imwzh.com/tv.json",
+      "name": "",
+      "source": "github:wzh15802/tvbox",
+      "kind": "single",
+      "ok": false,
+      "error": "HTTP 403"
+    },
+    {
+      "url": "https://github.moeyy.xyz/https:/raw.githubusercontent.com/maoystv/6/main/000.json",
+      "name": "",
+      "source": "github:Zhou-Li-Bin/Tvbox-QingNing",
+      "kind": "single",
+      "ok": false,
+      "error": "fetch failed"
+    },
+    {
+      "url": "https://ghproxy.cxkpro.top/https:/raw.githubusercontent.com/wzh15802/tvbox/main/tv.json",
+      "name": "",
+      "source": "github:wzh15802/tvbox",
+      "kind": "single",
+      "ok": false,
+      "error": "HTTP 403"
+    },
+    {
+      "url": "http://meowtv.cn/tv",
+      "name": "",
+      "source": "github:Zhou-Li-Bin/Tvbox-QingNing",
+      "kind": "single",
+      "ok": false,
+      "error": "fetch failed"
+    },
+    {
+      "url": "https://gitee.com/yiwu369/6758/raw/master/%E9%9D%92%E9%BE%99/1.json",
+      "name": "",
+      "source": "github:Zhou-Li-Bin/Tvbox-QingNing",
+      "kind": "single",
+      "ok": false,
+      "error": "HTTP 423"
+    },
+    {
+      "url": "https://img.shields.io/github/issues-pr/Zhou-Li-Bin/Tvbox-QingNing",
+      "name": "",
+      "source": "github:Zhou-Li-Bin/Tvbox-QingNing",
+      "kind": "single",
+      "ok": false
+    },
+    {
+      "url": "https://git.acwing.com/shhentu/lzxw/-/raw/main/Monster.json",
+      "name": "",
+      "source": "github:Zhou-Li-Bin/Tvbox-QingNing",
+      "kind": "single",
+      "ok": false
+    },
+    {
+      "url": "https://ztha.top/TVBox/thdjk.json",
+      "name": "",
+      "source": "github:Zhou-Li-Bin/Tvbox-QingNing",
+      "kind": "single",
+      "ok": true,
+      "sites": 46,
+      "lives": 10
+    },
+    {
+      "url": "https://chuanshuo.77blog.cn/tv.json",
+      "name": "",
+      "source": "github:Zhou-Li-Bin/Tvbox-QingNing",
+      "kind": "single",
+      "ok": false,
+      "error": "fetch failed"
+    },
+    {
+      "url": "https://fastly.jsdelivr.net/gh/baggiobatistuta/my-tvbox@main/output/multicang.json",
+      "name": "",
+      "source": "github:baggiobatistuta/my-tvbox",
+      "kind": "multi",
+      "ok": true,
+      "entries": 8
+    },
+    {
+      "url": "https://gitee.com/lukei7/lib/raw/Luck/%E8%87%AA%E5%BB%BA.json",
+      "name": "",
+      "source": "github:Zhou-Li-Bin/Tvbox-QingNing",
+      "kind": "single",
+      "ok": false,
+      "error": "HTTP 423"
+    },
+    {
+      "url": "https://img.shields.io/github/stars/Zhou-Li-Bin/Tvbox-QingNing?logo=Undertale",
+      "name": "",
+      "source": "github:Zhou-Li-Bin/Tvbox-QingNing",
+      "kind": "single",
+      "ok": false
+    },
+    {
+      "url": "https://2912.kstore.space/0506.json",
+      "name": "",
+      "source": "github:Zhou-Li-Bin/Tvbox-QingNing",
+      "kind": "single",
+      "ok": false,
+      "error": "HTTP 401"
+    },
+    {
+      "url": "https://git.acwing.com/cisenyuan/kdsb/-/raw/main/%E6%B5%B7%E5%85%B5%E5%BD%B1%E8%A7%86.json",
+      "name": "",
+      "source": "github:Zhou-Li-Bin/Tvbox-QingNing",
+      "kind": "single",
+      "ok": false
+    },
+    {
+      "url": "https://git.acwing.com/203BDXC/tvboxt/-/raw/main/CJ.json",
+      "name": "",
+      "source": "github:Zhou-Li-Bin/Tvbox-QingNing",
+      "kind": "single",
+      "ok": false
+    },
+    {
+      "url": "https://github.com/Zhou-Li-Bin/Tvbox-QingNing/stargazers",
+      "name": "",
+      "source": "github:Zhou-Li-Bin/Tvbox-QingNing",
+      "kind": "single",
+      "ok": false,
+      "error": "HTTP 404"
+    },
+    {
+      "url": "https://ghp.ci/raw.githubusercontent.com/guot55/YGBH/main/vip2.json",
+      "name": "",
+      "source": "github:Zhou-Li-Bin/Tvbox-QingNing",
+      "kind": "single",
+      "ok": false,
+      "error": "fetch failed"
+    },
+    {
+      "url": "https://git.acwing.com/lw0704/66/-/raw/master/jjzx.json",
+      "name": "",
+      "source": "github:Zhou-Li-Bin/Tvbox-QingNing",
+      "kind": "single",
+      "ok": false
+    },
+    {
+      "url": "https://git.acwing.com/abai/tv/-/raw/main/huas.json",
+      "name": "",
+      "source": "github:Zhou-Li-Bin/Tvbox-QingNing",
+      "kind": "single",
+      "ok": false
+    },
+    {
+      "url": "https://git.acwing.com/lkq0379/zjys/-/raw/main/zjys.json",
+      "name": "",
+      "source": "github:Zhou-Li-Bin/Tvbox-QingNing",
+      "kind": "single",
+      "ok": false
+    },
+    {
+      "url": "https://github.com/Zhou-Li-Bin/Tvbox-QingNing",
+      "name": "",
+      "source": "github:Zhou-Li-Bin/Tvbox-QingNing",
+      "kind": "single",
+      "ok": false
+    },
+    {
+      "url": "https://gitee.com/wxej/wxrj/raw/master/wx.json",
+      "name": "",
+      "source": "github:Zhou-Li-Bin/Tvbox-QingNing",
+      "kind": "single",
+      "ok": false,
+      "error": "HTTP 423"
+    },
+    {
+      "url": "http://ztha.top/TVBox/FLCK.json",
+      "name": "",
+      "source": "github:Zhou-Li-Bin/Tvbox-QingNing",
+      "kind": "single",
+      "ok": false,
+      "error": "HTTP 404"
+    },
+    {
+      "url": "https://github.com/azhansy/ds-tvbox/releases/tag/playlist-latest",
+      "name": "",
+      "source": "github:azhansy/ds-tvbox",
+      "kind": "single",
+      "ok": false
+    },
+    {
+      "url": "https://ghproxy.net/https:/raw.githubusercontent.com/yyfxz/qqtv/main/qq.json",
+      "name": "",
+      "source": "github:Zhou-Li-Bin/Tvbox-QingNing",
+      "kind": "single",
+      "ok": false,
+      "error": "HTTP 404"
+    },
+    {
+      "url": "https://raw.gitcode.com/yydg/ggdx/raw/main/Xboxb.json",
+      "name": "",
+      "source": "github:Zhou-Li-Bin/Tvbox-QingNing",
+      "kind": "single",
+      "ok": false,
+      "error": "HTTP 404"
+    },
+    {
+      "url": "https://chuanshuo.77blog.cn/dc.json",
+      "name": "",
+      "source": "github:Zhou-Li-Bin/Tvbox-QingNing",
+      "kind": "single",
+      "ok": false,
+      "error": "fetch failed"
+    },
+    {
+      "url": "http://120.79.4.185/dc.json",
+      "name": "",
+      "source": "github:Zhou-Li-Bin/Tvbox-QingNing",
+      "kind": "single",
+      "ok": false,
+      "error": "HTTP 404"
+    },
+    {
+      "url": "https://github.moeyy.xyz/https:/raw.githubusercontent.com/xyq254245/xyqonlinerule/main/XYQTVBox.json",
+      "name": "",
+      "source": "github:Zhou-Li-Bin/Tvbox-QingNing",
+      "kind": "single",
+      "ok": false,
+      "error": "fetch failed"
+    },
+    {
+      "url": "https://github.moeyy.xyz/https:/raw.githubusercontent.com/yoursmile66/TVBox/main/XC.json",
+      "name": "",
+      "source": "github:Zhou-Li-Bin/Tvbox-QingNing",
+      "kind": "single",
+      "ok": false,
+      "error": "fetch failed"
+    },
+    {
+      "url": "https://g.3344550.xyz/https:/raw.githubusercontent.com/jigedos/1024/master/jsm.json",
+      "name": "",
+      "source": "github:Zhou-Li-Bin/Tvbox-QingNing",
+      "kind": "single",
+      "ok": true,
+      "sites": 46,
+      "lives": 1
+    },
+    {
+      "url": "http://ww.weidonglong.com/ysc50311.json",
+      "name": "",
+      "source": "github:Zhou-Li-Bin/Tvbox-QingNing",
+      "kind": "single",
+      "ok": false,
+      "error": "fetch failed"
+    },
+    {
+      "url": "http://tv.laohu.cool/tvbox.json",
+      "name": "",
+      "source": "github:Zhou-Li-Bin/Tvbox-QingNing",
+      "kind": "single",
+      "ok": false,
+      "error": "fetch failed"
+    },
+    {
+      "url": "https://dxawi.github.io/0/0.json",
+      "name": "",
+      "source": "github:Zhou-Li-Bin/Tvbox-QingNing",
+      "kind": "single",
+      "ok": true,
+      "sites": 48,
+      "lives": 4
+    },
+    {
+      "url": "http://8.210.232.168/xc.json",
+      "name": "",
+      "source": "github:Zhou-Li-Bin/Tvbox-QingNing",
+      "kind": "single",
+      "ok": false,
+      "error": "fetch failed"
+    },
+    {
+      "url": "https://hub.gitmirror.com/https:/raw.githubusercontent.com/txtvv/txtv/main/tvbox/0326.json",
+      "name": "",
+      "source": "github:Zhou-Li-Bin/Tvbox-QingNing",
+      "kind": "single",
+      "ok": false,
+      "error": "fetch failed"
+    },
+    {
+      "url": "http://tv.xn--kcr29o437a.top/",
+      "name": "",
+      "source": "github:Zhou-Li-Bin/Tvbox-QingNing",
+      "kind": "single",
+      "ok": false,
+      "error": "fetch failed"
+    },
+    {
+      "url": "https://github.com/azhansy/ds-tvbox/releases/download/playlist-latest/result.m3u",
+      "name": "",
+      "source": "github:azhansy/ds-tvbox",
+      "kind": "live",
+      "ok": true,
+      "channels": 1134
+    },
+    {
+      "url": "http://xn--ihqu10cn4c.xn--z7x900a.live/%E6%8E%A5%E5%8F%A3%E7%A6%81%E6%AD%A2%E8%B4%A9%E5%8D%96",
+      "name": "",
+      "source": "github:Zhou-Li-Bin/Tvbox-QingNing",
+      "kind": "single",
+      "ok": false,
+      "error": "HTTP 404"
+    },
+    {
+      "url": "http://tt.iitvba.com/vip/tv.json",
+      "name": "",
+      "source": "github:Zhou-Li-Bin/Tvbox-QingNing",
+      "kind": "single",
+      "ok": false,
+      "error": "fetch failed"
+    },
+    {
+      "url": "https://download.kstore.space/download/2883/nzk/nzk0722.json",
+      "name": "",
+      "source": "github:Zhou-Li-Bin/Tvbox-QingNing",
+      "kind": "single",
+      "ok": false,
+      "error": "HTTP 401"
+    },
+    {
+      "url": "https://www.yingm.cc/dm/dm.json",
+      "name": "",
+      "source": "github:Zhou-Li-Bin/Tvbox-QingNing",
+      "kind": "single",
+      "ok": false,
+      "error": "fetch failed"
+    },
+    {
+      "url": "https://mirror.ghproxy.com/https:/raw.githubusercontent.com/txtvv/txtv/main/tvbox/0326.json",
+      "name": "",
+      "source": "github:Zhou-Li-Bin/Tvbox-QingNing",
+      "kind": "single",
+      "ok": false,
+      "error": "fetch failed"
+    },
+    {
+      "url": "http://pt.sxtv.top:66/sx.json",
+      "name": "",
+      "source": "github:Zhou-Li-Bin/Tvbox-QingNing",
+      "kind": "single",
+      "ok": false,
+      "error": "fetch failed"
+    },
+    {
+      "url": "https://www.macms.pro/box/3.json",
+      "name": "",
+      "source": "github:Zhou-Li-Bin/Tvbox-QingNing",
+      "kind": "single",
+      "ok": false,
+      "error": "fetch failed"
+    },
+    {
+      "url": "https://gitee.com/dongchenliu/liu/raw/master/yb.json",
+      "name": "",
+      "source": "github:Zhou-Li-Bin/Tvbox-QingNing",
+      "kind": "single",
+      "ok": false,
+      "error": "HTTP 423"
+    },
+    {
+      "url": "https://cdn.githubraw.com/xuexuguang/tvbox_spider/main/tv/kk/heroaku_dtes.json",
+      "name": "",
+      "source": "github:Zhou-Li-Bin/Tvbox-QingNing",
+      "kind": "single",
+      "ok": false
+    },
+    {
+      "url": "https://szyyds.cn/tv/x.json",
+      "name": "",
+      "source": "github:Zhou-Li-Bin/Tvbox-QingNing",
+      "kind": "single",
+      "ok": true,
+      "sites": 62,
+      "lives": 10
+    },
+    {
+      "url": "https://yydf.540734621.xyz/QQ/yydf2024.json",
+      "name": "",
+      "source": "github:Zhou-Li-Bin/Tvbox-QingNing",
+      "kind": "single",
+      "ok": false,
+      "error": "fetch failed"
+    },
+    {
+      "url": "https://gitlink.org.cn/api/hailin/aishangtv5/raw/tvbox/aishang.json?ref=master",
+      "name": "",
+      "source": "github:Zhou-Li-Bin/Tvbox-QingNing",
+      "kind": "single",
+      "ok": false
+    },
+    {
+      "url": "https://ghproxy.net/https:/raw.githubusercontent.com/yoursmile66/TVBox/main/XC.json",
+      "name": "",
+      "source": "github:Zhou-Li-Bin/Tvbox-QingNing",
+      "kind": "single",
+      "ok": false
+    },
+    {
+      "url": "https://gitlab.com/mfkdy/vip/-/raw/main/Lite.json",
+      "name": "",
+      "source": "github:Zhou-Li-Bin/Tvbox-QingNing",
+      "kind": "single",
+      "ok": false,
+      "error": "HTTP 403"
+    },
+    {
+      "url": "https://ghproxy.net/https:/raw.githubusercontent.com/yw88075/tvbox/main/yw.json",
+      "name": "",
+      "source": "github:Zhou-Li-Bin/Tvbox-QingNing",
+      "kind": "single",
+      "ok": true,
+      "sites": 151,
+      "lives": 1
+    },
+    {
+      "url": "https://gitdl.cn/https:/raw.githubusercontent.com/leevi0709/one/main/jsm.json",
+      "name": "",
+      "source": "github:Zhou-Li-Bin/Tvbox-QingNing",
+      "kind": "single",
+      "ok": false,
+      "error": "fetch failed"
+    },
+    {
+      "url": "https://github.moeyy.xyz/https:/github.com/PizazzGY/TVBox/blob/main/api.json",
+      "name": "",
+      "source": "github:Zhou-Li-Bin/Tvbox-QingNing",
+      "kind": "single",
+      "ok": false,
+      "error": "fetch failed"
+    },
+    {
+      "url": "https://raw.gitmirror.com/PizazzGY/TVBox/main/api.json",
+      "name": "",
+      "source": "github:Zhou-Li-Bin/Tvbox-QingNing",
+      "kind": "single",
+      "ok": false,
+      "error": "fetch failed"
+    },
+    {
+      "url": "https://gitlab.com/dokiss1/tvbox/-/raw/master/doki-Dx.json",
+      "name": "",
+      "source": "github:Zhou-Li-Bin/Tvbox-QingNing",
+      "kind": "single",
+      "ok": true,
+      "sites": 4,
+      "lives": 0
+    },
+    {
+      "url": "https://gitlab.com/duomv/dzhipy/-/raw/main/index.json",
+      "name": "",
+      "source": "github:Zhou-Li-Bin/Tvbox-QingNing",
+      "kind": "single",
+      "ok": false,
+      "error": "HTTP 404"
+    },
+    {
+      "url": "http://ztha.top/TVBox/thdjk.json",
+      "name": "",
+      "source": "github:Zhou-Li-Bin/Tvbox-QingNing",
+      "kind": "single",
+      "ok": true,
+      "sites": 46,
+      "lives": 10
+    },
+    {
+      "url": "http://ztha.top/ys.json",
+      "name": "",
+      "source": "github:Zhou-Li-Bin/Tvbox-QingNing",
+      "kind": "single",
+      "ok": false,
+      "error": "HTTP 404"
+    },
+    {
+      "url": "http://meowtv.top/tv",
+      "name": "",
+      "source": "github:Zhou-Li-Bin/Tvbox-QingNing",
+      "kind": "single",
+      "ok": false,
+      "error": "fetch failed"
+    },
+    {
+      "url": "http://ztha.top/PG/jsm.json",
+      "name": "",
+      "source": "github:Zhou-Li-Bin/Tvbox-QingNing",
+      "kind": "single",
+      "ok": false,
+      "error": "HTTP 404"
+    },
+    {
+      "url": "https://gitlab.com/lzc1021lzc/hjfggzs.hjys/-/raw/main/hjys.free.json",
+      "name": "",
+      "source": "github:Zhou-Li-Bin/Tvbox-QingNing",
+      "kind": "single",
+      "ok": false
+    },
+    {
+      "url": "https://d.kstore.space/download/2912/xx888.json",
+      "name": "",
+      "source": "github:Zhou-Li-Bin/Tvbox-QingNing",
+      "kind": "single",
+      "ok": false,
+      "error": "fetch failed"
+    },
+    {
+      "url": "http://74.120.175.78/JK/XYQTVBox/dj.json",
+      "name": "",
+      "source": "github:Zhou-Li-Bin/Tvbox-QingNing",
+      "kind": "single",
+      "ok": false,
+      "error": "fetch failed"
+    },
+    {
+      "url": "https://git.acwing.com/iduoduo/orange/-/raw/main/jsm.json",
+      "name": "",
+      "source": "github:Zhou-Li-Bin/Tvbox-QingNing",
+      "kind": "single",
+      "ok": false
+    },
+    {
+      "url": "http://xn--ihqu10cn4c.xn--z7x900a.love:63/%E6%8E%A5%E5%8F%A3%E7%A6%81%E6%AD%A2%E8%B4%A9%E5%8D%96",
+      "name": "",
+      "source": "github:Zhou-Li-Bin/Tvbox-QingNing",
+      "kind": "single",
+      "ok": false,
+      "error": "fetch failed"
+    },
+    {
+      "url": "http://124.71.189.194/a.json",
+      "name": "",
+      "source": "github:Zhou-Li-Bin/Tvbox-QingNing",
+      "kind": "single",
+      "ok": false,
+      "error": "fetch failed"
+    },
+    {
+      "url": "http://bp.tvbox.cam/",
+      "name": "",
+      "source": "github:Zhou-Li-Bin/Tvbox-QingNing",
+      "kind": "single",
+      "ok": false
+    },
+    {
+      "url": "https://ghproxy.net/raw.githubusercontent.com/gaotianliuyun/gao/master/js.json",
+      "name": "",
+      "source": "github:Zhou-Li-Bin/Tvbox-QingNing",
+      "kind": "single",
+      "ok": true,
+      "sites": 298,
+      "lives": 2
+    },
+    {
+      "url": "https://github.moeyy.xyz/https:/raw.githubusercontent.com/guot55/yg/main/pg/jsm.json",
+      "name": "",
+      "source": "github:Zhou-Li-Bin/Tvbox-QingNing",
+      "kind": "single",
+      "ok": false,
+      "error": "fetch failed"
+    },
+    {
+      "url": "https://github.moeyy.xyz/https:/raw.githubusercontent.com/wwb521/live/main/movies.json",
+      "name": "",
+      "source": "github:Zhou-Li-Bin/Tvbox-QingNing",
+      "kind": "single",
+      "ok": false,
+      "error": "fetch failed"
+    },
+    {
+      "url": "https://github.moeyy.xyz/https:/raw.githubusercontent.com/kunkka1986/my.img/main/frjbox.json",
+      "name": "",
+      "source": "github:Zhou-Li-Bin/Tvbox-QingNing",
+      "kind": "single",
+      "ok": false,
+      "error": "fetch failed"
+    },
+    {
+      "url": "https://weixine.net/ysc.json",
+      "name": "",
+      "source": "github:Zhou-Li-Bin/Tvbox-QingNing",
+      "kind": "single",
+      "ok": false,
+      "error": "fetch failed"
+    },
+    {
+      "url": "http://itvbox.cc/%E4%BA%91%E6%98%9F%E6%97%A5%E8%AE%B0",
+      "name": "",
+      "source": "github:Zhou-Li-Bin/Tvbox-QingNing",
+      "kind": "single",
+      "ok": false,
+      "error": "fetch failed"
+    },
+    {
+      "url": "http://www.fish2018.us.kg/p/jsm.json",
+      "name": "",
+      "source": "github:Zhou-Li-Bin/Tvbox-QingNing",
+      "kind": "single",
+      "ok": false,
+      "error": "fetch failed"
+    },
+    {
+      "url": "http://www.kf666888.cn/api/tvbox/img",
+      "name": "",
+      "source": "github:Zhou-Li-Bin/Tvbox-QingNing",
+      "kind": "single",
+      "ok": false,
+      "error": "HTTP 404"
+    },
+    {
+      "url": "https://tv.xn--11x555b.top/svip",
+      "name": "",
+      "source": "github:Zhou-Li-Bin/Tvbox-QingNing",
+      "kind": "single",
+      "ok": false
+    },
+    {
+      "url": "https://gitlab.com/noimank/tvbox/-/raw/main/tvboxmuti.json",
+      "name": "",
+      "source": "github:noimank/tvbox",
+      "kind": "multi",
+      "ok": true,
+      "entries": 14
+    },
+    {
+      "url": "https://gh.con.sh/https:/raw.githubusercontent.com/guot55/yg/main/max.json",
+      "name": "",
+      "source": "github:Zhou-Li-Bin/Tvbox-QingNing",
+      "kind": "single",
+      "ok": false
+    },
+    {
+      "url": "https://gh-proxy.com/https:/raw.githubusercontent.com/noimank/tvbox/main/tvboxmuti.json",
+      "name": "",
+      "source": "github:noimank/tvbox",
+      "kind": "multi",
+      "ok": true,
+      "entries": 14
+    },
+    {
+      "url": "https://star-history.dera.page/",
+      "name": "",
+      "source": "github:Zhou-Li-Bin/Tvbox-QingNing",
+      "kind": "single",
+      "ok": false
+    },
+    {
+      "url": "https://www.rjjjh.com/xzbgg.json",
+      "name": "",
+      "source": "github:Zhou-Li-Bin/Tvbox-QingNing",
+      "kind": "single",
+      "ok": false
+    },
+    {
+      "url": "https://cdn.jsdelivr.net/gh/sunofxv/tvbox-source@main/index.json%60",
+      "name": "",
+      "source": "github:sunofxv/tvbox-source",
+      "kind": "single",
+      "ok": false,
+      "error": "HTTP 404"
+    },
+    {
+      "url": "https://cdn.jsdelivr.net/gh/sunofxv/tvbox-source@main/lives.json%60",
+      "name": "",
+      "source": "github:sunofxv/tvbox-source",
+      "kind": "single",
+      "ok": false,
+      "error": "HTTP 404"
+    },
+    {
+      "url": "https://tv.youdu.fan:666`",
+      "name": "",
+      "source": "github:baibabnmklopgif-sudo/tvbox-sources",
+      "kind": "single",
+      "ok": false,
+      "error": "Failed to parse URL from https://tv.youdu.fan:666`"
+    },
+    {
+      "url": "http://tvbox.clbug.com/",
+      "name": "",
+      "source": "github:noimank/tvbox",
+      "kind": "single",
+      "ok": false
+    },
+    {
+      "url": "https://ghproxy.net/https:/raw.githubusercontent.com/sunofxv/tvbox-source/main/index.json%60",
+      "name": "",
+      "source": "github:sunofxv/tvbox-source",
+      "kind": "single",
+      "ok": false,
+      "error": "HTTP 404"
+    },
+    {
+      "url": "http://ztha.top/TVBox/GYCK.json%60",
+      "name": "",
+      "source": "github:baibabnmklopgif-sudo/tvbox-sources",
+      "kind": "single",
+      "ok": false,
+      "error": "HTTP 404"
+    },
+    {
+      "url": "https://star-history.dera.page/svg?repos=Zhou-Li-Bin/Tvbox-QingNing&type=Date",
+      "name": "",
+      "source": "github:Zhou-Li-Bin/Tvbox-QingNing",
+      "kind": "single",
+      "ok": false
+    },
+    {
+      "url": "https://d.kstore.space/download/6474/tvbox/api.json",
+      "name": "",
+      "source": "github:Zhou-Li-Bin/Tvbox-QingNing",
+      "kind": "single",
+      "ok": false,
+      "error": "fetch failed"
+    },
+    {
+      "url": "http://xhztv.top/tvbox.txt%60",
+      "name": "",
+      "source": "github:baibabnmklopgif-sudo/tvbox-sources",
+      "kind": "single",
+      "ok": false,
+      "error": "HTTP 404"
+    },
+    {
+      "url": "https://szyyds.cn/tv/x.json%60",
+      "name": "",
+      "source": "github:baibabnmklopgif-sudo/tvbox-sources",
+      "kind": "single",
+      "ok": false,
+      "error": "HTTP 404"
+    },
+    {
+      "url": "https://github.com/ssili126/tv",
+      "name": "",
+      "source": "github:noimank/tvbox",
+      "kind": "single",
+      "ok": false
+    },
+    {
+      "url": "http://www.xn--sss604efuw.net/tv%60",
+      "name": "",
+      "source": "github:baibabnmklopgif-sudo/tvbox-sources",
+      "kind": "single",
+      "ok": false
+    },
+    {
+      "url": "https://152.32.170.60/Yoursmile7/TVBox/raw/branch/master/XC.json%60",
+      "name": "",
+      "source": "github:baibabnmklopgif-sudo/tvbox-sources",
+      "kind": "single",
+      "ok": false,
+      "error": "fetch failed"
+    },
+    {
+      "url": "https://ghproxy.net/https:/raw.githubusercontent.com/yyfxz/qqtv/main/qq.json%60",
+      "name": "",
+      "source": "github:baibabnmklopgif-sudo/tvbox-sources",
+      "kind": "single",
+      "ok": false,
+      "error": "HTTP 404"
+    },
+    {
+      "url": "http://xhww.fun:63/%E5%B0%8F%E7%B1%B3/DEMO.json",
+      "name": "",
+      "source": "github:Zhou-Li-Bin/Tvbox-QingNing",
+      "kind": "single",
+      "ok": false,
+      "error": "fetch failed"
+    },
+    {
+      "url": "http://xhztv.top/4k.json%60",
+      "name": "",
+      "source": "github:baibabnmklopgif-sudo/tvbox-sources",
+      "kind": "single",
+      "ok": false,
+      "error": "HTTP 404"
+    },
+    {
+      "url": "https://clun.top/box.json",
+      "name": "",
+      "source": "github:cluntop/tvbox",
+      "kind": "single",
+      "ok": true,
+      "sites": 94,
+      "lives": 17
+    },
+    {
+      "url": "https://clun.top/aa.json",
+      "name": "",
+      "source": "github:cluntop/tvbox",
+      "kind": "single",
+      "ok": true,
+      "sites": 28,
+      "lives": 5
+    },
+    {
+      "url": "https://clun.top/jsm.json",
+      "name": "",
+      "source": "github:cluntop/tvbox",
+      "kind": "single",
+      "ok": true,
+      "sites": 79,
+      "lives": 35
+    },
+    {
+      "url": "https://clun.top/fun.json",
+      "name": "",
+      "source": "github:cluntop/tvbox",
+      "kind": "single",
+      "ok": true,
+      "sites": 85,
+      "lives": 40
+    },
+    {
+      "url": "https://freed.yuanhsing.cf/tvbox/meowcf.json%60",
+      "name": "",
+      "source": "github:baibabnmklopgif-sudo/tvbox-sources",
+      "kind": "single",
+      "ok": false,
+      "error": "fetch failed"
+    },
+    {
+      "url": "https://github.com/jinenge/tvbox",
+      "name": "",
+      "source": "github:baibabnmklopgif-sudo/tvbox-sources",
+      "kind": "single",
+      "ok": false
+    },
+    {
+      "url": "https://jinenge.us.kg/app/tvbox/tvbox.json%60",
+      "name": "",
+      "source": "github:baibabnmklopgif-sudo/tvbox-sources",
+      "kind": "single",
+      "ok": false,
+      "error": "fetch failed"
+    },
+    {
+      "url": "https://github.com/TVboxorg",
+      "name": "",
+      "source": "github:TVboxorg/TVbox",
+      "kind": "single",
+      "ok": false,
+      "error": "HTTP 410"
+    },
+    {
+      "url": "https://cdn.jsdelivr.net/gh/TVboxorg/TVbox@main/dist/tvbox.json",
+      "name": "",
+      "source": "github:TVboxorg/TVbox",
+      "kind": "multi",
+      "ok": true,
+      "entries": 20
+    },
+    {
+      "url": "https://raw.githubusercontent.com/TVboxorg/TVbox/main/dist/tvbox.json%60",
+      "name": "",
+      "source": "github:TVboxorg/TVbox",
+      "kind": "single",
+      "ok": false,
+      "error": "HTTP 404"
+    },
+    {
+      "url": "https://raw.githubusercontent.com/TVboxorg/TVbox/main/dist/official.json%60",
+      "name": "",
+      "source": "github:TVboxorg/TVbox",
+      "kind": "single",
+      "ok": false,
+      "error": "HTTP 404"
+    },
+    {
+      "url": "https://cdn.jsdelivr.net/gh/TVboxorg/TVbox@main/dist/official.json",
+      "name": "",
+      "source": "github:TVboxorg/TVbox",
+      "kind": "single",
+      "ok": true,
+      "sites": 160,
+      "lives": 24
+    },
+    {
+      "url": "https://raw.githubusercontent.com/TVboxorg/TVbox/main/dist/list.json%60",
+      "name": "",
+      "source": "github:TVboxorg/TVbox",
+      "kind": "single",
+      "ok": false,
+      "error": "HTTP 404"
+    },
+    {
+      "url": "http://xn--sss604efuw.com/tv",
+      "name": "",
+      "source": "github:Zhou-Li-Bin/Tvbox-QingNing",
+      "kind": "single",
+      "ok": false,
+      "error": "fetch failed"
+    },
+    {
+      "url": "https://raw.githubusercontent.com/Guovin/iptv-api/gd/source.json",
+      "name": "",
+      "source": "github:laijinsheng/TV",
+      "kind": "single",
+      "ok": false,
+      "error": "HTTP 404"
+    },
+    {
+      "url": "https://www.tvbox.org/]",
+      "name": "",
+      "source": "github:TVboxorg/TVbox",
+      "kind": "single",
+      "ok": false,
+      "error": "HTTP 404"
+    },
+    {
+      "url": "https://www.tvbox.org/",
+      "name": "",
+      "source": "github:TVboxorg/TVbox",
+      "kind": "single",
+      "ok": false
+    },
+    {
+      "url": "https://github.com/asdjkl6/tv",
+      "name": "",
+      "source": "github:laijinsheng/TV",
+      "kind": "single",
+      "ok": false
+    },
+    {
+      "url": "http://192.168.1.20:8080/index.json",
+      "name": "",
+      "source": "github:sunofxv/tvbox-source",
+      "kind": "single",
+      "ok": false,
+      "error": "fetch failed"
+    },
+    {
+      "url": "http://192.168.1.20:8080/lives.json",
+      "name": "",
+      "source": "github:sunofxv/tvbox-source",
+      "kind": "single",
+      "ok": false,
+      "error": "fetch failed"
+    }
+  ]
+}

@@ -107,10 +107,31 @@
           <label class="wide">允许的上游域名<input name="allowed_hosts" required placeholder="server.example, cdn.example"><small>只允许这些 HTTPS 主机及同名单内的重定向。</small></label>
           <label class="wide">JSON 中需代理的地址字段<input name="rewrite_fields" placeholder="url, sourceUrl"><small>不筛除列表项或修改其他字段，只改写真正的 URL 以隐藏上游。原始快照保留上游注释；客户端 JSON 响应移除注释语法以兼容标准解析器，并保留所有数据和普通字符串值。</small></label>
           <label>最大响应大小（字节）<input name="max_response_bytes" type="number" min="1024" max="10485760" value="2097152"></label>
+          <label class="check-label"><input name="auto_sync" type="checkbox" checked>自动同步</label>
+          <label>同步间隔（分钟）<input name="sync_interval_minutes" type="number" min="15" max="10080" value="360"></label>
           <label class="check-label"><input name="enabled" type="checkbox" checked>启用资源</label>
           <div class="wide form-submit"><button class="button primary" type="submit">保存资源</button><button id="reset-resource-form" class="button ghost" type="button">清空</button><span id="resource-form-note" class="muted"></span></div>
         </form>
         <div class="table-wrap"><table><thead><tr><th>资源</th><th>类型</th><th>slug</th><th>状态</th><th>数据同步</th><th>套餐</th><th>操作</th></tr></thead><tbody id="resources-body"></tbody></table></div>
+        <details class="form-drawer"><summary>⇪ 批量导入站点（每行一条上游地址）</summary>
+          <div class="form-grid">
+            <label class="wide">地址列表（每行一条，支持 名称|地址）<textarea id="resource-batch-text" rows="6" placeholder="示例仓|https://example.com/tv.json"></textarea></label>
+            <label>资源类型<select id="resource-batch-type"><option value="json">JSON 配置</option><option value="tv">TV/M3U 订阅</option></select></label>
+            <label>同步间隔（分钟）<input id="resource-batch-interval" type="number" min="15" max="10080" value="360"></label>
+            <div class="wide form-submit"><button id="resource-batch-import" class="button primary" type="button">批量创建并同步</button><span id="resource-batch-note" class="muted"></span></div>
+            <small class="wide">每条地址会自动创建 JSON/TV 资源、把上游主机加入白名单并立即读取一次快照。之后由定时任务按间隔自动同步，连续失败会通过 Bot 通知管理员。</small>
+          </div>
+        </details>
+        <details class="form-drawer"><summary>🗂 多仓地址库（采集的外部多仓/单仓/直播源）</summary>
+          <div class="form-grid">
+            <label class="wide">导入地址（每行一条，支持 名称|地址）<textarea id="catalog-import-text" rows="5"></textarea></label>
+            <label>类型<select id="catalog-import-kind"><option value="multi">多仓</option><option value="single">单仓</option><option value="live">电视直播</option></select></label>
+            <label>来源标记<input id="catalog-import-source" placeholder="例如 zoo.ink"></label>
+            <div class="wide form-submit"><button id="catalog-import" class="button soft" type="button">导入地址库</button><button id="catalog-validate" class="button soft" type="button">校验有效性（40 条/次）</button><span id="catalog-note" class="muted"></span></div>
+            <div class="wide table-wrap"><table><thead><tr><th>名称</th><th>类型</th><th>地址</th><th>校验</th><th>启用</th><th>操作</th></tr></thead><tbody id="catalog-body"></tbody></table></div>
+            <small class="wide">地址库中有效且启用的条目会输出到公开目录 <a href="/catalog/tvbox.json" target="_blank" rel="noreferrer" data-no-cache>/catalog/tvbox.json</a>（你自己的多仓源）；<a href="/catalog/status" target="_blank" rel="noreferrer" data-no-cache>/catalog/status</a> 查看运行状态。资源库中已同步的 JSON 资源也会一并列入。</small>
+          </div>
+        </details>
       </section>
 
       <section id="panel-plans" class="panel">

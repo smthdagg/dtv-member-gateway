@@ -1,47 +1,15 @@
 import { adminApi } from "./admin.js";
 import { telegramWebhook } from "./telegram.js";
-import { apiError, decryptToken, encryptOpaque, json, parseJsonList, parseJsonWithComments, sha256Hex, stripJsonComments } from "./security.js";
+import { decryptToken, json, parseJsonList, parseJsonWithComments, sha256Hex, stripJsonComments } from "./security.js";
 import { ADMIN_HTML, APP_JS, LOGO_PNG_BASE64, STYLE_CSS } from "./ui.js";
+import { responseHeaders, error, subscriptionResponse } from "./http.js";
+import { noteWeakDevice } from "./devices.js";
+import { isPublicHostname, rewriteJsonText, rewritePlaylistText, gatewayOrigin } from "./rewrite.js";
+import { runDueSync } from "./sync.js";
+import { serveAggregate, serveMemberPage, serveCatalog } from "./tvbox.js";
 
 const encoder = new TextEncoder();
 const TOKEN_PATTERN = /^[A-Za-z0-9_-]{42,48}$/u;
-
-function responseHeaders(extra = {}) {
-  return {
-    "cache-control": "no-store, private",
-    "referrer-policy": "no-referrer",
-    "x-content-type-options": "nosniff",
-    "x-frame-options": "DENY",
-    "content-security-policy": "default-src 'self'; frame-ancestors 'none'; form-action 'self'; base-uri 'none'",
-    ...extra,
-  };
-}
-
-function error(code, status, message = code) {
-  const messages = {
-    DEVICE_LIMIT_EXCEEDED: "设备数量已达到上限。请在 Bot 的设备管理中移除旧设备，或申请增加设备数。",
-    DEVICE_REMOVED: "此设备记录已被移除，当前设备标识不能继续访问。",
-    UPSTREAM_FETCH_FAILED: "上游接口连接失败，请稍后重试或联系管理员检查资源同步。",
-    UPSTREAM_HTTP_ERROR: "上游接口返回错误，请管理员检查资源地址和访问权限。",
-    UPSTREAM_JSON_INVALID: "上游内容不是有效 JSON，请管理员检查接口格式。",
-    UPSTREAM_REDIRECT_BLOCKED: "上游接口跳转到了不受支持的地址，请管理员检查资源配置。",
-    UPSTREAM_RESPONSE_TOO_LARGE: "上游接口返回内容超过允许大小。",
-    RESOURCE_STREAM_UNSUPPORTED: "此资源返回了不支持的音视频流。",
-    TARGET_INVALID: "此分发地址的转发凭证无效，请从 Bot 重新获取当前地址。",
-  };
-  if (message === code && messages[code]) message = messages[code];
-  return json({ error: { code, message } }, status, responseHeaders());
-}
-
-function subscriptionResponse(response) {
-  const headers = new Headers(response.headers);
-  headers.set("access-control-allow-origin", "*");
-  headers.set("access-control-allow-methods", "GET, HEAD, OPTIONS");
-  headers.set("access-control-allow-headers", "Accept, Authorization, Content-Type, Range");
-  headers.set("access-control-expose-headers", "Accept-Ranges, Content-Length, Content-Range, Content-Type");
-  headers.set("access-control-max-age", "86400");
-  return new Response(response.body, { status: response.status, statusText: response.statusText, headers });
-}
 
 function isApprovedHost(hostname, allowedHosts) {
   const host = hostname.toLowerCase().replace(/\.$/u, "");
@@ -50,128 +18,10 @@ function isApprovedHost(hostname, allowedHosts) {
   return allowedHosts.includes(host);
 }
 
-function isPublicHostname(hostname) {
-  const host = String(hostname || "").toLowerCase().replace(/\.$/u, "");
-  if (!host || host === "localhost" || host.endsWith(".localhost") || host.endsWith(".local") || host.endsWith(".internal") || host.endsWith(".lan")) return false;
-  if (/^(?:\d{1,3}\.){4}$/u.test(host) || /^(?:\d{1,3}\.){3}\d{1,3}$/u.test(host) || host.includes(":" ) || host.startsWith("[")) return false;
-  return /^(?=.{1,253}$)(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}$/u.test(host);
-}
-
 async function writeUsage(db, memberId, resourceId, allowed) {
   const now = new Date();
   await db.prepare("INSERT INTO usage_hourly (hour, member_id, resource_id, allowed_count, denied_count, last_seen) VALUES (?, ?, ?, ?, ?, ?) ON CONFLICT(hour, member_id, resource_id) DO UPDATE SET allowed_count = allowed_count + excluded.allowed_count, denied_count = denied_count + excluded.denied_count, last_seen = excluded.last_seen")
     .bind(now.toISOString().slice(0, 13), memberId, resourceId, allowed ? 1 : 0, allowed ? 0 : 1, now.toISOString()).run();
-}
-
-function deviceGeography(request) {
-  const cf = request.cf || {};
-  const country = String(cf.country || request.headers.get("cf-ipcountry") || "").trim().toLowerCase();
-  const region = String(cf.region || cf.regionCode || "").trim().toLowerCase().replace(/\s+/gu, " ");
-  const key = [country, region].filter(Boolean).join("|") || "unknown";
-  const label = [cf.city, cf.region || cf.regionCode, cf.country].filter(Boolean).map(String).join(", ") || (country || "位置未知");
-  return { key, label };
-}
-
-function networkBucket(value) {
-  const ip = String(value || "").trim().toLowerCase().replace(/^\[|\]$/gu, "").split("%")[0];
-  const ipv4 = ip.match(/^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/u);
-  if (ipv4 && ipv4.slice(1).every((part) => Number(part) <= 255)) return `${Number(ipv4[1])}.${Number(ipv4[2])}.0.0/16`;
-  if (ip.startsWith("::ffff:")) return networkBucket(ip.slice(7));
-  if (!ip.includes(":")) return ip ? `raw:${ip.slice(0, 100)}` : "unknown";
-
-  let address = ip;
-  if (address.includes(".")) {
-    const colon = address.lastIndexOf(":");
-    const tail = networkBucket(address.slice(colon + 1));
-    const match = tail.match(/^(\d+)\.(\d+)\.0\.0\/16$/u);
-    if (!match) return `raw:${ip.slice(0, 100)}`;
-    const hi = ((Number(match[1]) << 8) | Number(match[2])).toString(16);
-    const lo = "0";
-    address = address.slice(0, colon + 1) + hi + ":" + lo;
-  }
-  const halves = address.split("::");
-  if (halves.length > 2) return `raw:${ip.slice(0, 100)}`;
-  const left = halves[0] ? halves[0].split(":") : [];
-  const right = halves.length === 2 && halves[1] ? halves[1].split(":") : [];
-  if ([...left, ...right].some((part) => !/^[0-9a-f]{1,4}$/u.test(part))) return `raw:${ip.slice(0, 100)}`;
-  const fillCount = 8 - left.length - right.length;
-  if ((halves.length === 1 && fillCount !== 0) || fillCount < 0) return `raw:${ip.slice(0, 100)}`;
-  const groups = [...left, ...Array.from({ length: fillCount }, () => "0"), ...right].map((part) => part.padStart(4, "0"));
-  return groups.slice(0, 4).join(":") + "::/64";
-}
-
-function browserBucket(value) {
-  const agent = String(value || "unknown").toLowerCase();
-  let browser = "other";
-  if (/samsungbrowser\//u.test(agent)) browser = "samsung internet";
-  else if (/\b(?:edg|edge|edga|edgios)\//u.test(agent)) browser = "edge";
-  else if (/\b(?:opr|opera)\//u.test(agent)) browser = "opera";
-  else if (/\b(?:silk)\//u.test(agent)) browser = "silk";
-  else if (/\b(?:crios|chrome)\//u.test(agent)) browser = "chrome";
-  else if (/\b(?:fxios|firefox)\//u.test(agent)) browser = "firefox";
-  else if (/safari\//u.test(agent)) browser = "safari";
-  else if (/tizenbrowser/u.test(agent)) browser = "tizen browser";
-  else if (/stremio/u.test(agent)) browser = "stremio";
-  else if (/exoplayer/u.test(agent)) browser = "exoplayer";
-  else if (/okhttp/u.test(agent)) browser = "okhttp";
-
-  else if (/roku/u.test(agent)) browser = "roku app";
-  return browser;
-}
-
-function storedGeoBucket(value) {
-  const geo = String(value || "").trim().toLowerCase().replace(/\s+/gu, " ");
-  if (!geo || geo === "位置未知" || geo === "unknown") return "unknown";
-  const parts = geo.split(",").map((part) => part.trim()).filter(Boolean);
-  if (parts.length >= 2) return [parts.at(-1), parts.at(-2)].join("|");
-  return parts[0] || "unknown";
-}
-
-async function noteWeakDevice(db, memberId, request) {
-  const ip = request.headers.get("cf-connecting-ip") || "";
-  const agent = String(request.headers.get("user-agent") || "unknown").replace(/[\r\n\t]/gu, " ").slice(0, 300);
-  const geography = deviceGeography(request);
-  const network = networkBucket(ip);
-  const browser = browserBucket(agent);
-  const signatureHash = await sha256Hex("coarse-device:" + network + ":" + geography.key + ":" + browser);
-  const id = crypto.randomUUID();
-  const current = new Date();
-  const now = current.toISOString();
-  const day = now.slice(0, 10);
-  const prior = await db.prepare("SELECT id, signature_hash, revoked_at, first_seen, last_seen, last_seen_day, ip_address, geo_location, user_agent_hint, network_bucket, geo_region_key, browser_key FROM devices WHERE member_id = ? AND (network_bucket = ? OR network_bucket = '') ORDER BY last_seen DESC LIMIT 200")
-    .bind(memberId, network).all();
-  const matches = (prior.results || []).filter((row) => row.signature_hash === signatureHash || (
-    (row.network_bucket || networkBucket(row.ip_address)) === network &&
-    (row.geo_region_key || storedGeoBucket(row.geo_location)) === geography.key &&
-    (row.browser_key || browserBucket(row.user_agent_hint)) === browser
-  ));
-  const revoked = matches.find((row) => row.revoked_at);
-  if (revoked) return { blocked: true, reason: "DEVICE_REMOVED", id: revoked.id };
-  const activeMatches = matches.filter((row) => !row.revoked_at);
-  if (activeMatches.length) {
-    const existing = activeMatches.find((row) => row.signature_hash === signatureHash) || activeMatches[0];
-    const duplicates = activeMatches.filter((row) => row.id !== existing.id);
-    const lastSeen = Date.parse(existing.last_seen || "");
-    const touch = !Number.isFinite(lastSeen) || lastSeen < Date.now() - 10 * 60_000 || existing.last_seen_day !== day;
-    const identityChanged = existing.signature_hash !== signatureHash || existing.network_bucket !== network || existing.geo_region_key !== geography.key || existing.browser_key !== browser;
-    if (touch || identityChanged || duplicates.length) {
-      const statements = duplicates.map((row) => db.prepare("DELETE FROM devices WHERE id = ? AND member_id = ? AND revoked_at IS NULL").bind(row.id, memberId));
-      statements.push(db.prepare("UPDATE devices SET signature_hash = ?, network_bucket = ?, geo_region_key = ?, browser_key = ?, last_seen = ?, last_seen_day = ?, ip_address = ?, user_agent_hint = ?, geo_location = ? WHERE id = ? AND member_id = ? AND revoked_at IS NULL")
-        .bind(signatureHash, network, geography.key, browser, touch ? now : existing.last_seen, touch ? day : existing.last_seen_day, touch ? ip.slice(0, 100) : existing.ip_address, touch ? agent.slice(0, 120) : existing.user_agent_hint, touch ? geography.label.slice(0, 120) : existing.geo_location, existing.id, memberId));
-      await db.batch(statements);
-      const refreshed = await db.prepare("SELECT revoked_at FROM devices WHERE id = ? AND member_id = ?").bind(existing.id, memberId).first();
-      if (refreshed?.revoked_at) return { blocked: true, reason: "DEVICE_REMOVED", id: existing.id };
-    }
-    return { blocked: false, id: existing.id };
-  }
-  const inserted = await db.prepare("INSERT INTO devices (id, member_id, signature_hash, trust_level, user_agent_hint, ip_address, geo_location, first_seen, last_seen, network_bucket, geo_region_key, browser_key, last_seen_day) SELECT ?, ?, ?, 'weak', ?, ?, ?, ?, ?, ?, ?, ?, ? WHERE (SELECT COUNT(*) FROM devices WHERE member_id = ? AND revoked_at IS NULL) < (SELECT max_devices FROM members WHERE id = ?) AND true ON CONFLICT(member_id, signature_hash) DO NOTHING RETURNING id")
-    .bind(id, memberId, signatureHash, agent.slice(0, 120), ip.slice(0, 100), geography.label.slice(0, 120), now, now, network, geography.key, browser, day, memberId, memberId).first();
-  if (inserted?.id) return { blocked: false, id: inserted.id };
-  const raced = await db.prepare("SELECT id, revoked_at FROM devices WHERE member_id = ? AND signature_hash = ?")
-    .bind(memberId, signatureHash).first();
-  if (raced && !raced.revoked_at) return { blocked: false, id: raced.id };
-  if (raced?.revoked_at) return { blocked: true, reason: "DEVICE_REMOVED", id: raced.id };
-  return { blocked: true, reason: "DEVICE_LIMIT_EXCEEDED", id };
 }
 
 function safeSuffix(pathname) {
@@ -192,12 +42,6 @@ function upstreamTarget(resource, suffix, incomingUrl) {
   base.pathname = basePath + (suffix ? "/" + suffix : "");
   for (const [key, value] of incomingUrl.searchParams) base.searchParams.append(key, value);
   return base;
-}
-
-function isRewriteableAddress(value, key, fields) {
-  const text = value.trim();
-  if (/^(?:https?:\/\/|\/\/[^/])/iu.test(text)) return true;
-  return fields.has(key) && /^(?:\/(?!\/)|\.{1,2}\/|\?.+)/u.test(text);
 }
 
 async function fetchBounded(url, allowedHosts, limit, allowPublicTargets = false) {
@@ -335,141 +179,6 @@ async function readBoundedBody(body, limit) {
     offset += chunk.byteLength;
   }
   return result;
-}
-
-function scanJsonStringValues(text) {
-  const values = [];
-  let index = 0;
-  function skipTrivia() {
-    while (index < text.length) {
-      if (/\s/u.test(text[index])) { index++; continue; }
-      if (text[index] === "/" && text[index + 1] === "/") {
-        index += 2;
-        while (index < text.length && text[index] !== "\n") index++;
-        continue;
-      }
-      if (text[index] === "/" && text[index + 1] === "*") {
-        index += 2;
-        while (index < text.length && !(text[index] === "*" && text[index + 1] === "/")) index++;
-        index = Math.min(text.length, index + 2);
-        continue;
-      }
-      break;
-    }
-  }
-  function readString() {
-    const start = index++;
-    while (index < text.length) {
-      if (text[index] === "\\") { index += 2; continue; }
-      if (text[index++] === '"') break;
-    }
-    const end = index;
-    return { start, end, value: JSON.parse(text.slice(start, end)) };
-  }
-  function parseValue(key = "") {
-    skipTrivia();
-    if (text[index] === '"') {
-      const token = readString();
-      values.push({ ...token, key });
-      return;
-    }
-    if (text[index] === "{") {
-      index++;
-      skipTrivia();
-      while (index < text.length && text[index] !== "}") {
-        const property = readString().value;
-        skipTrivia();
-        if (text[index] !== ":") throw new Error("UPSTREAM_JSON_INVALID");
-        index++;
-        parseValue(property);
-        skipTrivia();
-        if (text[index] === ",") { index++; skipTrivia(); }
-        else break;
-      }
-      if (text[index] !== "}") throw new Error("UPSTREAM_JSON_INVALID");
-      index++;
-      return;
-    }
-    if (text[index] === "[") {
-      index++;
-      skipTrivia();
-      while (index < text.length && text[index] !== "]") {
-        parseValue(key);
-        skipTrivia();
-        if (text[index] === ",") { index++; skipTrivia(); }
-        else break;
-      }
-      if (text[index] !== "]") throw new Error("UPSTREAM_JSON_INVALID");
-      index++;
-      return;
-    }
-    while (index < text.length && !/[\s,}\]]/u.test(text[index])) index++;
-  }
-  parseValue();
-  return values;
-}
-
-async function rewriteJsonText(text, fields, base, gatewayPrefix, allowedHosts, env) {
-  const replacements = [];
-  for (const token of scanJsonStringValues(text)) {
-    if (!isRewriteableAddress(token.value, token.key, fields)) continue;
-    const rewritten = await rewriteUrl(token.value, base, gatewayPrefix, allowedHosts, env);
-    if (rewritten !== token.value) replacements.push({ ...token, rewritten });
-  }
-  let result = text;
-  for (const replacement of replacements.reverse()) {
-    result = result.slice(0, replacement.start) + JSON.stringify(replacement.rewritten) + result.slice(replacement.end);
-  }
-  return result;
-}
-
-async function rewritePlaylistText(text, base, gatewayPrefix, allowedHosts, env) {
-  const pieces = text.split(/(\r\n|\n|\r)/u);
-  for (let index = 0; index < pieces.length; index += 2) {
-    const line = pieces[index];
-    const trimmed = line.trim();
-    if (!trimmed) continue;
-    if (!trimmed.startsWith("#")) {
-      const leading = line.slice(0, line.indexOf(trimmed));
-      const trailing = line.slice(line.indexOf(trimmed) + trimmed.length);
-      pieces[index] = leading + await rewriteUrl(trimmed, base, gatewayPrefix, allowedHosts, env) + trailing;
-      continue;
-    }
-    const replacements = [];
-    const uriPattern = /\bURI=(?:"([^"]*)"|'([^']*)'|([^,\s]*))/giu;
-    for (const match of line.matchAll(uriPattern)) {
-      const value = match[1] ?? match[2] ?? match[3] ?? "";
-      if (!value) continue;
-      const offset = match.index + match[0].indexOf(value);
-      const rewritten = await rewriteUrl(value, base, gatewayPrefix, allowedHosts, env);
-      if (rewritten !== value) replacements.push({ start: offset, end: offset + value.length, value: rewritten });
-    }
-    for (const replacement of replacements.reverse()) {
-      pieces[index] = pieces[index].slice(0, replacement.start) + replacement.value + pieces[index].slice(replacement.end);
-    }
-  }
-  return pieces.join("");
-}
-
-async function rewriteUrl(value, base, gatewayPrefix, allowedHosts, env) {
-  let url;
-  try { url = new URL(value, base); } catch { return value; }
-  if (!(url.protocol === "https:" || url.protocol === "http:") || url.username || url.password || url.href.length > 2048 || !isPublicHostname(url.hostname)) return value;
-  const encrypted = await encryptOpaque(url.href, env.TOKEN_ENCRYPTION_KEY);
-  const basename = url.pathname.split("/").pop() || "";
-  const extension = /\.([A-Za-z0-9]{1,10})$/u.exec(basename)?.[1];
-  return gatewayPrefix + "/__p/" + encrypted + (extension ? "." + extension.toLowerCase() : "");
-}
-
-function gatewayOrigin(request, env) {
-  const requestOrigin = new URL(request.url).origin;
-  const configuredOrigins = String(env.PUBLIC_BASE_URLS || env.PUBLIC_BASE_URL || "")
-    .split(",")
-    .map((value) => {
-      try { return new URL(value.trim()).origin; } catch { return ""; }
-    });
-  if (configuredOrigins.includes(requestOrigin)) return requestOrigin;
-  return String(env.PUBLIC_BASE_URL || "https://member.example.com").replace(/\/+$/u, "");
 }
 
 async function sendGatewayContent(request, result, resource, token, slug, env, nestedTarget = false) {
@@ -619,7 +328,7 @@ export default {
   async fetch(request, env) {
     try {
       const url = new URL(request.url);
-      if (url.pathname === "/healthz") return json({ ok: true, service: "dtv-member-auth" }, 200, responseHeaders());
+      if (url.pathname === "/healthz") return json({ ok: true, service: env.WORKER_NAME || "dtv-member-gateway" }, 200, responseHeaders());
       if (url.pathname === "/telegram/webhook" && request.method === "POST") return telegramWebhook(request, env);
       if (url.pathname === "/admin/api" || url.pathname.startsWith("/admin/api/")) {
         const result = await adminApi(request, env);
@@ -634,13 +343,26 @@ export default {
       }
       if (url.pathname === "/admin" || url.pathname === "/admin/" || url.pathname === "/") return adminPage();
       if (url.pathname === "/favicon.ico") return new Response(null, { status: 204, headers: responseHeaders() });
+      if (url.pathname === "/catalog/tvbox.json" || url.pathname === "/catalog/duocang.json") {
+        if (request.method === "OPTIONS") return subscriptionResponse(new Response(null, { status: 204, headers: responseHeaders() }));
+        return subscriptionResponse(await serveCatalog(request, env, "tvbox"));
+      }
+      if (url.pathname === "/catalog/status") {
+        return subscriptionResponse(await serveCatalog(request, env, "status"));
+      }
       const parts = url.pathname.split("/").filter(Boolean);
+      if (parts.length === 1 && (request.method === "GET" || request.method === "HEAD")) {
+        return subscriptionResponse(await serveMemberPage(request, env, parts[0]));
+      }
       if (parts.length >= 2) {
         const token = parts[0];
         const requestedSlug = parts[1];
         if (request.method === "OPTIONS") return subscriptionResponse(new Response(null, { status: 204, headers: responseHeaders() }));
         const jsonAlias = requestedSlug.endsWith(".json");
         const slug = jsonAlias ? requestedSlug.slice(0, -5) : requestedSlug;
+        if (parts.length === 2 && (slug === "tvbox" || slug === "all")) {
+          return subscriptionResponse(await serveAggregate(request, env, token, slug));
+        }
         return subscriptionResponse(await serveResource(request, env, token, slug, parts.slice(2).join("/"), jsonAlias));
       }
       return error("NOT_FOUND", 404);
@@ -649,6 +371,7 @@ export default {
     }
   },
   async scheduled(_event, env, context) {
+    context.waitUntil(runDueSync(env, { limit: 8 }).catch(() => {}));
     const confirmationCutoff = new Date(Date.now() - 86_400_000).toISOString();
     const draftCutoff = new Date(Date.now() - 86_400_000).toISOString();
     const retentionRow = await env.DB.prepare("SELECT plain_value FROM app_settings WHERE setting_key = 'log_retention_days'").first();
@@ -662,6 +385,7 @@ export default {
       env.DB.prepare("DELETE FROM signup_drafts WHERE updated_at < ?").bind(draftCutoff),
       env.DB.prepare("DELETE FROM usage_hourly WHERE hour < ?").bind(usageCutoff),
       env.DB.prepare("DELETE FROM audit_events WHERE timestamp < ?").bind(logCutoff),
+      env.DB.prepare("DELETE FROM resource_sync_log WHERE started_at < ?").bind(logCutoff),
     ]));
   },
 };
