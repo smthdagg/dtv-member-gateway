@@ -272,7 +272,7 @@ export async function runDueSync(env, { limit = 8, notify = true } = {}) {
       env.DB.prepare("SELECT COUNT(*) AS count FROM resource_sync_log WHERE resource_id = ? AND ok = 0 AND started_at > datetime('now', '-12 hours')").bind(row.id).first()));
     const recurring = failed.filter((row, index) => Number(repeated[index]?.count || 0) >= 3);
     if (recurring.length) {
-      await notifyAdmins(env, "DTV 多仓平台：以下资源连续同步失败（近 12 小时 ≥3 次）：\n" +
+      await notifyAdmins(env, "AITV 多仓平台：以下资源连续同步失败（近 12 小时 ≥3 次）：\n" +
         recurring.map((row) => "· " + row.slug + " — " + (row.error_detail || row.error || "")).join("\n") +
         "\n会员仍可读取最近一次成功快照。");
     }
