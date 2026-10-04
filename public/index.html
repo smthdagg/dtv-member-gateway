@@ -52,7 +52,7 @@
       <nav class="tabs" aria-label="管理区">
         <button class="tab" data-tab="applications">开通申请 <b id="application-count" class="count-badge hidden">0</b></button>
         <button class="tab active" data-tab="members">会员</button>
-        <button class="tab" data-tab="resources">资源</button>
+        <button class="tab" data-tab="harvest">采集清洗</button><button class="tab" data-tab="outputs">分发资源</button>
         <button class="tab" data-tab="plans">套餐</button>
         <button class="tab" data-tab="renewals">续期申请 <b id="renewal-count" class="count-badge hidden">0</b></button>
         <button class="tab" data-tab="device-requests">设备扩容 <b id="device-request-count" class="count-badge hidden">0</b></button>
@@ -96,8 +96,8 @@
         </details>
       </section>
 
-      <section id="panel-resources" class="panel">
-        <div class="panel-heading"><div><h2>资源</h2><p>同步时保留完整上游快照；客户端响应保留所有数据项、字段、有效值和顺序，标准化注释格式，并只把可代理的 URL 改写为会员专属地址。二级文件与媒体按原响应透传，并支持 Range。</p></div><div class="row-actions"><button id="full-update" class="button primary" type="button">一键抓取更新</button><button id="sync-all-resources" class="button soft" type="button">读取并同步全部 JSON</button></div></div>
+      <section id="panel-harvest" class="panel">
+        <div class="panel-heading"><div><h2>采集清洗平台（内部流水线）</h2><p>抓取 → 有效性检验 → 去重（地址级/内容级/节点身份）→ 测速择优 → 自动聚合。这里是<b>内部原料区</b>，最终只产出两个分发成品（见「分发资源」页），用户不会接触下面任何源地址。</p></div><div class="row-actions"><button id="full-update" class="button primary" type="button">一键抓取更新</button><button id="sync-all-resources" class="button soft" type="button">读取并同步全部 JSON</button></div></div>
         <form id="resource-form" class="card form-grid resource-form">
           <input name="id" type="hidden">
           <label>资源名称<input name="name" required placeholder="例如 主线路 TV"></label>
@@ -135,6 +135,15 @@
         </details>
       </section>
 
+      <section id="panel-outputs" class="panel">
+        <div class="panel-heading"><div><h2>分发资源</h2><p>用户实际获得的全部内容：一个多仓地址 + 一个单仓地址。以下为公开形态；每个会员另有专属地址（结构相同、含网关凭证），由 Bot 或会员分发页发放。</p></div></div>
+        <div class="plan-list">
+          <article class="plan-card"><div class="panel-heading"><div><h3>AiTV 多仓地址</h3><div class="plan-meta">主仓库 + 备用仓库 两条入口，指向同一份聚合单仓</div></div><a class="button soft" id="open-multi" href="/catalog/tvbox.json" target="_blank" rel="noreferrer">打开 ↗</a></div><div id="outputs-multi" class="muted">读取中…</div></article>
+          <article class="plan-card"><div class="panel-heading"><div><h3>AiTV 单仓地址</h3><div class="plan-meta">全部源测速择优后的聚合配置（每节点仅保留最快实例）</div></div><a class="button soft" id="open-single" href="/catalog/all.json" target="_blank" rel="noreferrer">打开 ↗</a></div><div id="outputs-single" class="muted">读取中…</div></article>
+        </div>
+        <div class="card settings-card"><div class="settings-status"><span class="section-kicker">产出状态</span><strong id="outputs-status">读取中…</strong></div><p class="settings-note">每次「采集清洗」页的一键更新或定时任务执行后，两个成品自动重建。会员地址与公开地址内容一致，会员版额外带网关凭证并隐藏全部上游。</p></div>
+      </section>
+
       <section id="panel-plans" class="panel">
         <div class="panel-heading"><div><h2>套餐</h2><p>每个套餐设置有效天数、设备提示上限和资源集合。</p></div></div>
         <form id="plan-form" class="card form-grid">
@@ -142,8 +151,7 @@
           <label>套餐名称<input name="name" required placeholder="例如 月度会员"></label>
           <label>有效天数<input name="duration_days" type="number" min="1" max="3650" value="30" required></label>
           <label>设备上限<input name="default_max_devices" type="number" min="1" max="50" value="1" required></label>
-          <label class="check-label"><input name="include_all" type="checkbox" checked>包含全部启用仓（自动跟随）</label><label class="check-label"><input name="enabled" type="checkbox" checked>启用套餐</label>
-          <fieldset class="wide resource-checks"><legend>可访问资源</legend><div id="plan-resource-options" class="check-list"></div></fieldset>
+          <label class="check-label"><input name="include_all" type="checkbox" checked>包含全部聚合节点（自动跟随）</label><label class="check-label"><input name="enabled" type="checkbox" checked>启用套餐</label>
           <div class="wide form-submit"><button class="button primary" type="submit">保存套餐</button><button id="reset-plan-form" class="button ghost" type="button">清空</button><span id="plan-form-note" class="muted"></span></div>
         </form>
         <div id="plans-list" class="plan-list"></div>

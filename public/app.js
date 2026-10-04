@@ -88,7 +88,8 @@ $$(".tab").forEach((button) => button.addEventListener("click", () => {
   if (button.dataset.tab === "bot-settings") loadTelegramSettings();
   if (button.dataset.tab === "logs") loadLogSettings();
   if (button.dataset.tab === "audit") loadAudit();
-  if (button.dataset.tab === "resources") loadCatalog();
+  if (button.dataset.tab === "harvest") loadCatalog();
+  if (button.dataset.tab === "outputs") loadOutputsStatus();
 }));
 
 $("#open-bot-settings").addEventListener("click", () => $('[data-tab="bot-settings"]').click());
@@ -99,7 +100,6 @@ async function loadAll() {
     state.plans = plans;
     state.resources = resources;
     fillPlanOptions();
-    renderPlanChecks();
     renderPlans();
     renderResources();
     await Promise.all([loadOverview(), loadMembers(), loadApplications(), loadRenewals(), loadDeviceLimitRequests(), loadCatalog()]);
@@ -376,12 +376,10 @@ $("#member-form").addEventListener("submit", async (event) => {
   try {
     const created = await api("/members", { method: "POST", body: JSON.stringify(data) });
     const plan = state.plans.find((item) => item.id === created.member.plan_id);
-    const lines = (plan?.resource_ids || []).map((resourceId) => {
-      const resource = state.resources.find((item) => item.id === resourceId && item.enabled);
-      if (!resource) return "";
-      const tail = resource.type === "stremio" ? "/manifest.json" : resource.type === "json" ? ".json" : "";
-      return resource.name + "： " + BASE + "/" + created.token + "/" + resource.slug + tail;
-    }).filter(Boolean);
+    const lines = [
+      "① 多仓地址（主/备仓库）： " + BASE + "/" + created.token + "/tvbox.json",
+      "② 单仓地址（全部源聚合）： " + BASE + "/" + created.token + "/all.json",
+    ];
     const delivery = created.member.status !== "active" ? "会员状态为待开通，激活后才会发送分发地址。" : created.bot_notified ? "Bot 已自动私聊发送分发地址。" : "Bot 未能推送（用户可能尚未打开 Bot）；请让会员向 Bot 发送 /start 获取地址。";
     $("#member-form-note").textContent = (lines.join("\n") || "会员已创建。") + "\n" + delivery;
     $("#member-form-note").style.whiteSpace = "pre-wrap";
@@ -428,23 +426,12 @@ $("#member-import").addEventListener("click", async () => {
   } catch (error) { $("#member-import-note").textContent = error.message; }
 });
 
-function renderResourceOptions(selected = []) {
-  const box = $("#plan-resource-options");
-  box.replaceChildren();
-  if (!state.resources.length) box.append(element("span", "先创建至少一个资源。", "muted"));
-  for (const resource of state.resources) {
-    const label = element("label");
-    const input = document.createElement("input");
-    input.type = "checkbox";
-    input.name = "resource_ids";
-    input.value = resource.id;
-    input.checked = selected.includes(resource.id);
-    label.append(input, document.createTextNode(resource.name + " · " + resource.slug));
-    box.append(label);
-  }
+function syncPlanFieldsetVisibility() {
+  const checked = $("#plan-form").elements.include_all.checked;
+  $("#plan-resource-fieldset").classList.toggle("hidden", checked);
 }
 
-function renderPlanChecks() { renderResourceOptions(); }
+function renderPlanChecks() { /* 内容固定跟随全部聚合节点，无需选择 */ }
 
 function renderPlans() {
   const box = $("#plans-list");
@@ -458,11 +445,15 @@ function renderPlans() {
     edit.addEventListener("click", () => editPlan(plan));
     heading.append(title, edit);
     const tags = element("div", "", "plan-resources");
-    for (const id of plan.resource_ids || []) {
-      const resource = state.resources.find((item) => item.id === id);
-      if (resource) tags.append(element("span", resource.name, "tag"));
+    if (plan.include_all) {
+      tags.append(element("span", "全部聚合节点（自动跟随）", "tag"));
+    } else {
+      for (const id of plan.resource_ids || []) {
+        const resource = state.resources.find((item) => item.id === id);
+        if (resource) tags.append(element("span", resource.name, "tag"));
+      }
+      if (!tags.childElementCount) tags.append(element("span", "未分配资源", "muted"));
     }
-    if (!tags.childElementCount) tags.append(element("span", "未分配资源", "muted"));
     card.append(heading, tags);
     box.append(card);
   }
@@ -476,28 +467,29 @@ function editPlan(plan) {
   form.elements.default_max_devices.value = plan.default_max_devices;
   form.elements.include_all.checked = Boolean(plan.include_all);
   form.elements.enabled.checked = Boolean(plan.enabled);
-  renderResourceOptions(plan.resource_ids || []);
   form.scrollIntoView({ behavior: "smooth", block: "center" });
 }
+
+$("#plan-form").elements.include_all.addEventListener("change", syncPlanFieldsetVisibility);
 
 $("#plan-form").addEventListener("submit", async (event) => {
   event.preventDefault();
   const form = event.currentTarget;
   const data = Object.fromEntries(new FormData(form).entries());
   data.enabled = form.elements.enabled.checked;
-  data.include_all = form.elements.include_all.checked;
-  data.resource_ids = $$('input[name="resource_ids"]:checked', form).map((input) => input.value);
+  data.include_all = true;
+  data.resource_ids = [];
   const id = form.elements.id.value;
   try {
     await api("/plans" + (id ? "/" + id : ""), { method: id ? "PUT" : "POST", body: JSON.stringify(data) });
-    form.reset(); form.elements.id.value = ""; form.elements.duration_days.value = "365"; form.elements.default_max_devices.value = "10"; form.elements.include_all.checked = true; form.elements.enabled.checked = true;
+    form.reset(); form.elements.id.value = ""; form.elements.duration_days.value = "365"; form.elements.default_max_devices.value = "10"; form.elements.enabled.checked = true;
     $("#plan-form-note").textContent = "已保存";
     await loadAll();
     toast("套餐已保存");
   } catch (error) { $("#plan-form-note").textContent = error.message; }
 });
 $("#reset-plan-form").addEventListener("click", () => {
-  const form = $("#plan-form"); form.reset(); form.elements.id.value = ""; form.elements.duration_days.value = "365"; form.elements.default_max_devices.value = "10"; form.elements.include_all.checked = true; form.elements.enabled.checked = true; renderResourceOptions();
+  const form = $("#plan-form"); form.reset(); form.elements.id.value = ""; form.elements.duration_days.value = "365"; form.elements.default_max_devices.value = "10"; form.elements.enabled.checked = true; renderResourceOptions();
 });
 
 function renderResources() {
@@ -899,10 +891,10 @@ $("#rotate-token").addEventListener("click", async () => {
   try {
     const result = await api("/members/" + encodeURIComponent(state.currentMember.id) + "/reset-token", { method: "POST", body: "{}" });
     const plan = state.plans.find((item) => item.id === state.currentMember.plan_id);
-    const links = (plan?.resource_ids || []).map((resourceId) => {
-      const resource = state.resources.find((item) => item.id === resourceId && item.enabled);
-      return resource ? resource.name + "： " + BASE + "/" + result.token + "/" + resource.slug + (resource.type === "stremio" ? "/manifest.json" : resource.type === "json" ? ".json" : "") : "";
-    }).filter(Boolean);
+    const links = [
+      "① 多仓地址： " + BASE + "/" + result.token + "/tvbox.json",
+      "② 单仓地址： " + BASE + "/" + result.token + "/all.json",
+    ];
     $("#token-result").textContent = "新地址仅在本次显示：\n" + links.join("\n") + "\n\n也可让会员通过 Telegram Bot 的“获取当前分发地址”按钮重新查看。请勿转发给其他人。";
     $("#token-result").classList.remove("hidden");
     await Promise.all([loadMembers(), loadOverview()]);
@@ -1018,6 +1010,21 @@ $("#device-requests-select-all").addEventListener("change", (event) => {
 $("#device-requests-approve").addEventListener("click", () => processDeviceLimitRequests($$(`[data-device-request-id]:checked`).map((input) => input.dataset.deviceRequestId), "approved"));
 $("#device-requests-reject").addEventListener("click", () => processDeviceLimitRequests($$(`[data-device-request-id]:checked`).map((input) => input.dataset.deviceRequestId), "rejected"));
 $("#refresh-device-requests").addEventListener("click", () => loadDeviceLimitRequests());
+
+async function loadOutputsStatus() {
+  try {
+    const [multi, single, status] = await Promise.all([
+      fetch("/catalog/tvbox.json", { cache: "no-store" }).then((r) => r.json()),
+      fetch("/catalog/all.json", { cache: "no-store" }).then((r) => r.json()),
+      fetch("/catalog/status", { cache: "no-store" }).then((r) => r.json()),
+    ]);
+    $("#outputs-multi").textContent = "AiTV主仓库 + AiTV备用仓库（备用域 dtv.us.ci），共 " + (multi.storeHouse || []).length + " 条入口";
+    $("#outputs-single").textContent = "聚合节点 " + (single.sites || []).length + " 个 · 直播分组 " + (single.lives || []).length + " · 解析 " + (single.parses || []).length;
+    const merged = (status.artifacts || []).find((row) => row.key === "catalog:merged");
+    const multiArtifact = (status.artifacts || []).find((row) => row.key === "catalog:multi");
+    $("#outputs-status").textContent = "最近重建：" + (merged?.generated_at || "—").slice(0, 16).replace("T", " ") + " · 单仓 " + Math.round(Number(merged?.bytes || 0) / 1024) + "KB · 多仓 " + Math.round(Number(multiArtifact?.bytes || 0) / 1024) + "KB";
+  } catch { $("#outputs-status").textContent = "状态读取失败"; }
+}
 
 async function loadAudit() {
   try {
