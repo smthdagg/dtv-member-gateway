@@ -747,21 +747,21 @@ function setDetailHtml(container, data) {
   container.append(element("h3", "设备记录"));
   const activeDevices = (data.devices || []).filter((device) => !device.revoked_at);
   container.append(element("div", "当前活跃设备数：" + activeDevices.length + " / " + Number(member.max_devices || 1), "muted"));
-  container.append(element("div", "设备按 IPv4 /16 网段（IPv6 /64）、地区和浏览器类型合并识别。重复访问以及同一识别组内的设备不会反复占用名额；访问统计另行按小时记录。", "muted"));
+  container.append(element("div", "设备识别：由客户端特征（User-Agent 指纹）、运营商网络（ASN）和 IP 所在地区组合生成专属设备 ID。IP 变化但地区不变不算新设备；应用升级只更新指纹；同一设备反复访问不会反复占用名额。不读取任何硬件序列号。", "muted"));
   if (!data.devices?.length) container.append(element("div", "暂无设备记录。"));
   for (const device of data.devices || []) {
     const card = element("article", "", "request-card device-card");
     const info = element("div", "", "application-info");
     const browser = String(device.browser_key || "").split("|").map((part) => part ? part[0].toUpperCase() + part.slice(1) : "").filter(Boolean).join(" · ");
     info.append(element("strong", (device.geo_location || "位置未知") + " · " + (device.ip_address || "IP 未知") + (device.revoked_at ? " · 已移除" : " · 使用中")),
-      element("small", (browser || "未知浏览器") + " · 识别网段：" + (device.network_bucket || "旧记录待更新")),
+      element("small", (browser || "未知浏览器") + " · 运营商网络：" + (device.network_bucket || "—") + " · 地区键：" + (device.geo_region_key || "—")),
       element("small", "首次：" + new Date(device.first_seen).toLocaleString("zh-CN") + " · 最近：" + new Date(device.last_seen).toLocaleString("zh-CN")));
     card.append(info);
     if (!device.revoked_at) {
       const remove = element("button", "移除设备", "mini-button warn");
       remove.type = "button";
       remove.addEventListener("click", async () => {
-        if (!confirm("移除此设备分组并释放一个名额？同一网段、地区和浏览器的后续请求会被拒绝。")) return;
+        if (!confirm("移除此设备并释放一个名额？该设备专属 ID 被拒绝，需清除记录或更换地区/网络后才能重新接入。")) return;
         try {
           await api("/members/" + encodeURIComponent(member.id) + "/devices/" + encodeURIComponent(device.id), { method: "DELETE", body: "{}" });
           await openMember(member.id);

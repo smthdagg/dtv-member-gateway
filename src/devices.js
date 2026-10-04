@@ -1,42 +1,24 @@
 import { sha256Hex } from "./security.js";
 
+// 平台自身基础设施（网关互访）不登记设备
+const INFRA_UA = /^(?:DTV-Member-Gateway|AITV-)/iu;
+
 function deviceGeography(request) {
   const cf = request.cf || {};
   const country = String(cf.country || request.headers.get("cf-ipcountry") || "").trim().toLowerCase();
   const region = String(cf.region || cf.regionCode || "").trim().toLowerCase().replace(/\s+/gu, " ");
-  const key = [country, region].filter(Boolean).join("|") || "unknown";
   const label = [cf.city, cf.region || cf.regionCode, cf.country].filter(Boolean).map(String).join(", ") || (country || "位置未知");
-  return { key, label };
+  return { label };
 }
 
-function networkBucket(value) {
-  const ip = String(value || "").trim().toLowerCase().replace(/^\[|\]$/gu, "").split("%")[0];
-  const ipv4 = ip.match(/^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/u);
-  if (ipv4 && ipv4.slice(1).every((part) => Number(part) <= 255)) return `${Number(ipv4[1])}.${Number(ipv4[2])}.0.0/16`;
-  if (ip.startsWith("::ffff:")) return networkBucket(ip.slice(7));
-  if (!ip.includes(":")) return ip ? `raw:${ip.slice(0, 100)}` : "unknown";
-
-  let address = ip;
-  if (address.includes(".")) {
-    const colon = address.lastIndexOf(":");
-    const tail = networkBucket(address.slice(colon + 1));
-    const match = tail.match(/^(\d+)\.(\d+)\.0\.0\/16$/u);
-    if (!match) return `raw:${ip.slice(0, 100)}`;
-    const hi = ((Number(match[1]) << 8) | Number(match[2])).toString(16);
-    const lo = "0";
-    address = address.slice(0, colon + 1) + hi + ":" + lo;
-  }
-  const halves = address.split("::");
-  if (halves.length > 2) return `raw:${ip.slice(0, 100)}`;
-  const left = halves[0] ? halves[0].split(":") : [];
-  const right = halves.length === 2 && halves[1] ? halves[1].split(":") : [];
-  if ([...left, ...right].some((part) => !/^[0-9a-f]{1,4}$/u.test(part))) return `raw:${ip.slice(0, 100)}`;
-  const fillCount = 8 - left.length - right.length;
-  if ((halves.length === 1 && fillCount !== 0) || fillCount < 0) return `raw:${ip.slice(0, 100)}`;
-  const groups = [...left, ...Array.from({ length: fillCount }, () => "0"), ...right].map((part) => part.padStart(4, "0"));
-  return groups.slice(0, 4).join(":") + "::/64";
+// 设备地区键：IP 所在地（国家|省|市）——地区变化才算新设备
+function geoKeyOf(request) {
+  const cf = request.cf || {};
+  const key = [cf.country, cf.region, cf.city].map((value) => String(value || "").trim().toLowerCase()).filter(Boolean).join("|");
+  return key || "unknown";
 }
 
+// 客户端应用家族（UA 主产品，不含版本）：应用升级只更新指纹，不算新设备
 function browserBucket(value) {
   const agent = String(value || "unknown").toLowerCase();
   let browser = "other";
@@ -52,60 +34,67 @@ function browserBucket(value) {
   else if (/exoplayer/u.test(agent)) browser = "exoplayer";
   else if (/okhttp/u.test(agent)) browser = "okhttp";
   else if (/roku/u.test(agent)) browser = "roku app";
+  else if (/dalvik/u.test(agent)) browser = "dalvik";
+  else if (/apache-httpclient|urlconnection/u.test(agent)) browser = "java http";
   return browser;
 }
 
-function storedGeoBucket(value) {
-  const geo = String(value || "").trim().toLowerCase().replace(/\s+/gu, " ");
-  if (!geo || geo === "位置未知" || geo === "unknown") return "unknown";
-  const parts = geo.split(",").map((part) => part.trim()).filter(Boolean);
-  if (parts.length >= 2) return [parts.at(-1), parts.at(-2)].join("|");
-  return parts[0] || "unknown";
+// 专属设备 ID：客户端 UA 指纹 + 运营商 ASN + 地区 组合哈希
+async function deviceSignature(userAgent, network, geoKey) {
+  const uaFingerprint = await sha256Hex(userAgent);
+  return sha256Hex("aitv-device:" + uaFingerprint + ":" + network + ":" + geoKey);
 }
 
 export async function noteWeakDevice(db, memberId, request) {
-  const ip = request.headers.get("cf-connecting-ip") || "";
-  const agent = String(request.headers.get("user-agent") || "unknown").replace(/[\r\n\t]/gu, " ").slice(0, 300);
-  const geography = deviceGeography(request);
-  const network = networkBucket(ip);
-  const browser = browserBucket(agent);
-  const signatureHash = await sha256Hex("coarse-device:" + network + ":" + geography.key + ":" + browser);
-  const id = crypto.randomUUID();
-  const current = new Date();
-  const now = current.toISOString();
-  const day = now.slice(0, 10);
-  const prior = await db.prepare("SELECT id, signature_hash, revoked_at, first_seen, last_seen, last_seen_day, ip_address, geo_location, user_agent_hint, network_bucket, geo_region_key, browser_key FROM devices WHERE member_id = ? AND (network_bucket = ? OR network_bucket = '') ORDER BY last_seen DESC LIMIT 200")
-    .bind(memberId, network).all();
-  const matches = (prior.results || []).filter((row) => row.signature_hash === signatureHash || (
-    (row.network_bucket || networkBucket(row.ip_address)) === network &&
-    (row.geo_region_key || storedGeoBucket(row.geo_location)) === geography.key &&
-    (row.browser_key || browserBucket(row.user_agent_hint)) === browser
-  ));
-  const revoked = matches.find((row) => row.revoked_at);
-  if (revoked) return { blocked: true, reason: "DEVICE_REMOVED", id: revoked.id };
-  const activeMatches = matches.filter((row) => !row.revoked_at);
-  if (activeMatches.length) {
-    const existing = activeMatches.find((row) => row.signature_hash === signatureHash) || activeMatches[0];
-    const duplicates = activeMatches.filter((row) => row.id !== existing.id);
-    const lastSeen = Date.parse(existing.last_seen || "");
-    const touch = !Number.isFinite(lastSeen) || lastSeen < Date.now() - 10 * 60_000 || existing.last_seen_day !== day;
-    const identityChanged = existing.signature_hash !== signatureHash || existing.network_bucket !== network || existing.geo_region_key !== geography.key || existing.browser_key !== browser;
-    if (touch || identityChanged || duplicates.length) {
-      const statements = duplicates.map((row) => db.prepare("DELETE FROM devices WHERE id = ? AND member_id = ? AND revoked_at IS NULL").bind(row.id, memberId));
-      statements.push(db.prepare("UPDATE devices SET signature_hash = ?, network_bucket = ?, geo_region_key = ?, browser_key = ?, last_seen = ?, last_seen_day = ?, ip_address = ?, user_agent_hint = ?, geo_location = ? WHERE id = ? AND member_id = ? AND revoked_at IS NULL")
-        .bind(signatureHash, network, geography.key, browser, touch ? now : existing.last_seen, touch ? day : existing.last_seen_day, touch ? ip.slice(0, 100) : existing.ip_address, touch ? agent.slice(0, 120) : existing.user_agent_hint, touch ? geography.label.slice(0, 120) : existing.geo_location, existing.id, memberId));
-      await db.batch(statements);
-      const refreshed = await db.prepare("SELECT revoked_at FROM devices WHERE id = ? AND member_id = ?").bind(existing.id, memberId).first();
-      if (refreshed?.revoked_at) return { blocked: true, reason: "DEVICE_REMOVED", id: existing.id };
+  const userAgent = String(request.headers.get("user-agent") || "unknown").replace(/[\r\n\t]/gu, " ").trim();
+  if (INFRA_UA.test(userAgent)) return { blocked: false, infra: true };
+
+  const ip = String(request.headers.get("cf-connecting-ip") || "").slice(0, 100);
+  const cf = request.cf || {};
+  const network = "AS" + String(cf.asn ?? "0");
+  const geoKey = geoKeyOf(request);
+  const { label: geoLabel } = deviceGeography(request);
+  const browser = browserBucket(userAgent);
+  const uaHint = userAgent.slice(0, 120);
+  const signatureHash = await deviceSignature(userAgent, network, geoKey);
+
+  const now = new Date();
+  const nowIso = now.toISOString();
+  const day = nowIso.slice(0, 10);
+
+  // 1. 专属 ID 完全匹配：同一设备，仅更新活跃时间/最近 IP
+  const current = await db.prepare("SELECT id, revoked_at, last_seen, last_seen_day, ip_address FROM devices WHERE member_id = ? AND signature_hash = ?")
+    .bind(memberId, signatureHash).first();
+  if (current) {
+    if (current.revoked_at) return { blocked: true, reason: "DEVICE_REMOVED", id: current.id };
+    const lastSeen = Date.parse(current.last_seen || "");
+    if (!Number.isFinite(lastSeen) || lastSeen < Date.now() - 10 * 60_000 || current.last_seen_day !== day || current.ip_address !== ip) {
+      await db.prepare("UPDATE devices SET last_seen = ?, last_seen_day = ?, ip_address = ?, geo_location = ?, user_agent_hint = ? WHERE id = ?")
+        .bind(nowIso, day, ip, geoLabel, uaHint, current.id).run();
     }
-    return { blocked: false, id: existing.id };
+    return { blocked: false, id: current.id };
   }
-  const inserted = await db.prepare("INSERT INTO devices (id, member_id, signature_hash, trust_level, user_agent_hint, ip_address, geo_location, first_seen, last_seen, network_bucket, geo_region_key, browser_key, last_seen_day) SELECT ?, ?, ?, 'weak', ?, ?, ?, ?, ?, ?, ?, ?, ? WHERE (SELECT COUNT(*) FROM devices WHERE member_id = ? AND revoked_at IS NULL) < (SELECT max_devices FROM members WHERE id = ?) AND true ON CONFLICT(member_id, signature_hash) DO NOTHING RETURNING id")
-    .bind(id, memberId, signatureHash, agent.slice(0, 120), ip.slice(0, 100), geography.label.slice(0, 120), now, now, network, geography.key, browser, day, memberId, memberId).first();
+
+  // 2. UA 漂移（如同应用升级）：同运营商 ASN + 同地区 + 同应用家族 → 视为同一设备，原地更新专属 ID
+  const drifted = await db.prepare(
+    "SELECT id FROM devices WHERE member_id = ? AND network_bucket = ? AND geo_region_key = ? AND browser_key = ? AND revoked_at IS NULL ORDER BY last_seen DESC LIMIT 1"
+  ).bind(memberId, network, geoKey, browser).first();
+  if (drifted) {
+    await db.prepare("UPDATE devices SET signature_hash = ?, user_agent_hint = ?, ip_address = ?, geo_location = ?, last_seen = ?, last_seen_day = ? WHERE id = ?")
+      .bind(signatureHash, uaHint, ip, geoLabel, nowIso, day, drifted.id).run();
+    return { blocked: false, id: drifted.id };
+  }
+
+  // 3. 新设备：名额未满则登记
+  const inserted = await db.prepare(
+    "INSERT INTO devices (id, member_id, signature_hash, trust_level, user_agent_hint, ip_address, geo_location, first_seen, last_seen, network_bucket, geo_region_key, browser_key, last_seen_day) VALUES (?, ?, ?, 'weak', ?, ?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT(member_id, signature_hash) DO NOTHING RETURNING id"
+  ).bind(crypto.randomUUID(), memberId, signatureHash, uaHint, ip, geoLabel, nowIso, nowIso, network, geoKey, browser, day).first();
   if (inserted?.id) return { blocked: false, id: inserted.id };
+
+  // 并发竞态兜底：同名设备可能已被并行请求登记
   const raced = await db.prepare("SELECT id, revoked_at FROM devices WHERE member_id = ? AND signature_hash = ?")
     .bind(memberId, signatureHash).first();
   if (raced && !raced.revoked_at) return { blocked: false, id: raced.id };
   if (raced?.revoked_at) return { blocked: true, reason: "DEVICE_REMOVED", id: raced.id };
-  return { blocked: true, reason: "DEVICE_LIMIT_EXCEEDED", id };
+  return { blocked: true, reason: "DEVICE_LIMIT_EXCEEDED", id: "" };
 }

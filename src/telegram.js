@@ -115,7 +115,7 @@ async function memberProfile(env, db, member) {
     lines.push("最近设备位置：暂无记录");
     lines.push("最近设备 IP：暂无记录");
   }
-  lines.push("\n设备按 User-Agent 与 Cloudflare 提供的 IP 地理位置组合识别；相同设备的重复访问不会反复占用名额。地理位置变化或客户端标识变化时可能识别为新设备。当前识别不读取客户端硬件序列号。");
+  lines.push("\n设备识别：由客户端特征（UA 指纹）、运营商网络（ASN）与 IP 所在地区组合生成专属设备 ID；IP 变化但地区不变不算新设备，应用升级只更新指纹。不读取任何硬件序列号。");
   return lines.join("\n");
 }
 
