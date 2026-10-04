@@ -554,7 +554,7 @@ export async function adminApi(request, env) {
       catch (error) { rows.push({ slug: resource.slug, ok: false, error: "SYNC_EXCEPTION", error_detail: String(error?.message || error).slice(0, 120) }); }
     }
     const expansion = await expandMultiCatalog(env, { limit: 3, perSource: 40 });
-    const artifacts = await regenerateArtifacts(env);
+    const artifacts = await regenerateArtifacts(env, { probe: true, probeLimit: 250 });
     return json({
       synced: rows.filter((row) => row.ok).length,
       failed: rows.filter((row) => !row.ok).length,

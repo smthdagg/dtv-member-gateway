@@ -721,7 +721,7 @@ $("#full-update").addEventListener("click", async (event) => {
     $("#resource-form-note").textContent = "同步成功 " + result.synced + "，失败 " + result.failed +
       (failures.length ? "（" + failures.join("；") + "）" : "") +
       "。多仓展开：发现 " + result.expansion.found + "、新集成 " + result.expansion.created + "、重复 " + result.expansion.duplicate + "、无效 " + result.expansion.invalid +
-      "。地址库已重新生成：多仓 " + result.artifacts.resources + " 仓 / 单仓 " + result.artifacts.sites + " 源（" + result.artifacts.generated_at.slice(0, 16).replace("T", " ") + "）。";
+      "。探活：检测 " + result.artifacts.probe.checked + "，存活 " + result.artifacts.probe.alive + "，剔除失效 " + result.artifacts.probe.blocked + "。地址库已重新生成：多仓 " + result.artifacts.resources + " 仓 / 单仓 " + result.artifacts.sites + " 源（" + result.artifacts.generated_at.slice(0, 16).replace("T", " ") + "）。";
     await loadAll();
     toast("一键更新完成：两个地址库已重新生成");
   } catch (error) { $("#resource-form-note").textContent = error.message; }

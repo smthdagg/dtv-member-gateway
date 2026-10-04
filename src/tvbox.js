@@ -197,7 +197,13 @@ export async function serveCatalogSource(request, env, slug) {
     "SELECT s.content_json, s.source_content_type FROM resources r JOIN resource_snapshots s ON s.resource_id = r.id WHERE r.slug = ? AND r.enabled = 1 AND r.type = 'json'"
   ).bind(slug).first();
   if (!row?.content_json) return error("AGGREGATE_EMPTY", 404);
-  return cachedText(request, async () => row.content_json);
+  return cachedText(request, async () => {
+    try {
+      return JSON.stringify(parseJsonWithComments(row.content_json));
+    } catch {
+      return row.content_json;
+    }
+  });
 }
 
 function escapeHtml(value) {
