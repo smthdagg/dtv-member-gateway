@@ -64,6 +64,11 @@ function currentlyActive(member) {
 }
 
 async function permittedResources(db, member) {
+  const plan = await db.prepare("SELECT COALESCE(include_all, 0) AS include_all FROM plans WHERE id = ?").bind(member.plan_id).first();
+  if (plan?.include_all) {
+    const result = await db.prepare("SELECT id, slug, name, type FROM resources WHERE enabled = 1 ORDER BY name").all();
+    return result.results || [];
+  }
   const result = await db.prepare("SELECT r.id, r.slug, r.name, r.type FROM resources r JOIN plan_resources pr ON pr.resource_id = r.id WHERE pr.plan_id = ? AND r.enabled = 1 ORDER BY r.name")
     .bind(member.plan_id).all();
   return result.results || [];
@@ -136,7 +141,7 @@ async function linkList(env, db, member) {
   const lines = [
     "会员状态：有效",
     "套餐：" + (member.plan_name || "未命名"),
-    "到期时间：" + new Date(member.expires_at).toLocaleString("zh-CN", { timeZone: env.DISPLAY_TIME_ZONE || "Asia/Singapore" }),
+    "到期时间：" + (Date.parse(member.expires_at || "") > Date.now() + 80 * 365.5 * 86_400_000 ? "永久有效" : new Date(member.expires_at).toLocaleString("zh-CN", { timeZone: env.DISPLAY_TIME_ZONE || "Asia/Singapore" })),
     "",
     "你的专属地址（二选一，请勿转发）：",
     "",

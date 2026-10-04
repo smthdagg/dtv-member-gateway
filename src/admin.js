@@ -150,24 +150,25 @@ async function reviewDeviceLimitRequest(db, env, requestId, status, actorId, not
 
 async function savePlan(db, body, planId = null) {
   const name = String(body.name || "").trim().slice(0, 80);
-  const days = Math.max(1, Math.min(3650, Number(body.duration_days || 0)));
+  const days = Math.max(1, Math.min(36500, Number(body.duration_days || 0)));
   const devices = Math.max(1, Math.min(50, Number(body.default_max_devices || 1)));
   const resources = Array.isArray(body.resource_ids) ? [...new Set(body.resource_ids.map(String))] : [];
   if (!name || !Number.isFinite(days)) return apiError("PLAN_INVALID", 400);
   const id = planId || newId();
   const statements = [];
+  const includeAll = body.include_all ? 1 : 0;
   if (planId) {
-    statements.push(db.prepare("UPDATE plans SET name = ?, duration_days = ?, default_max_devices = ?, enabled = ? WHERE id = ?")
-      .bind(name, days, devices, body.enabled === false ? 0 : 1, id));
+    statements.push(db.prepare("UPDATE plans SET name = ?, duration_days = ?, default_max_devices = ?, enabled = ?, include_all = ? WHERE id = ?")
+      .bind(name, days, devices, body.enabled === false ? 0 : 1, includeAll, id));
     statements.push(db.prepare("DELETE FROM plan_resources WHERE plan_id = ?").bind(id));
   } else {
-    statements.push(db.prepare("INSERT INTO plans (id, name, duration_days, default_max_devices, enabled, created_at) VALUES (?, ?, ?, ?, ?, ?)")
-      .bind(id, name, days, devices, body.enabled === false ? 0 : 1, nowIso()));
+    statements.push(db.prepare("INSERT INTO plans (id, name, duration_days, default_max_devices, enabled, include_all, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)")
+      .bind(id, name, days, devices, body.enabled === false ? 0 : 1, includeAll, nowIso()));
   }
   for (const resourceId of resources) statements.push(db.prepare("INSERT INTO plan_resources (plan_id, resource_id) VALUES (?, ?)").bind(id, resourceId));
   try { await db.batch(statements); } catch { return apiError("PLAN_SAVE_FAILED", 400); }
   await audit(db, "admin", planId ? "plan.update" : "plan.create", "plan", id, "resources=" + resources.length);
-  return json({ id, name, duration_days: days, default_max_devices: devices, resource_ids: resources }, planId ? 200 : 201);
+  return json({ id, name, duration_days: days, default_max_devices: devices, include_all: includeAll, resource_ids: resources }, planId ? 200 : 201);
 }
 
 async function saveResource(db, body, resourceId = null) {

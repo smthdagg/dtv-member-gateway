@@ -474,6 +474,7 @@ function editPlan(plan) {
   form.elements.name.value = plan.name;
   form.elements.duration_days.value = plan.duration_days;
   form.elements.default_max_devices.value = plan.default_max_devices;
+  form.elements.include_all.checked = Boolean(plan.include_all);
   form.elements.enabled.checked = Boolean(plan.enabled);
   renderResourceOptions(plan.resource_ids || []);
   form.scrollIntoView({ behavior: "smooth", block: "center" });
@@ -484,18 +485,19 @@ $("#plan-form").addEventListener("submit", async (event) => {
   const form = event.currentTarget;
   const data = Object.fromEntries(new FormData(form).entries());
   data.enabled = form.elements.enabled.checked;
+  data.include_all = form.elements.include_all.checked;
   data.resource_ids = $$('input[name="resource_ids"]:checked', form).map((input) => input.value);
   const id = form.elements.id.value;
   try {
     await api("/plans" + (id ? "/" + id : ""), { method: id ? "PUT" : "POST", body: JSON.stringify(data) });
-    form.reset(); form.elements.id.value = ""; form.elements.duration_days.value = "30"; form.elements.default_max_devices.value = "1"; form.elements.enabled.checked = true;
+    form.reset(); form.elements.id.value = ""; form.elements.duration_days.value = "365"; form.elements.default_max_devices.value = "10"; form.elements.include_all.checked = true; form.elements.enabled.checked = true;
     $("#plan-form-note").textContent = "已保存";
     await loadAll();
     toast("套餐已保存");
   } catch (error) { $("#plan-form-note").textContent = error.message; }
 });
 $("#reset-plan-form").addEventListener("click", () => {
-  const form = $("#plan-form"); form.reset(); form.elements.id.value = ""; form.elements.duration_days.value = "30"; form.elements.default_max_devices.value = "1"; form.elements.enabled.checked = true; renderResourceOptions();
+  const form = $("#plan-form"); form.reset(); form.elements.id.value = ""; form.elements.duration_days.value = "365"; form.elements.default_max_devices.value = "10"; form.elements.include_all.checked = true; form.elements.enabled.checked = true; renderResourceOptions();
 });
 
 function renderResources() {

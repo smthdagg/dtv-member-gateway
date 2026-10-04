@@ -142,7 +142,7 @@
           <label>套餐名称<input name="name" required placeholder="例如 月度会员"></label>
           <label>有效天数<input name="duration_days" type="number" min="1" max="3650" value="30" required></label>
           <label>设备上限<input name="default_max_devices" type="number" min="1" max="50" value="1" required></label>
-          <label class="check-label"><input name="enabled" type="checkbox" checked>启用套餐</label>
+          <label class="check-label"><input name="include_all" type="checkbox" checked>包含全部启用仓（自动跟随）</label><label class="check-label"><input name="enabled" type="checkbox" checked>启用套餐</label>
           <fieldset class="wide resource-checks"><legend>可访问资源</legend><div id="plan-resource-options" class="check-list"></div></fieldset>
           <div class="wide form-submit"><button class="button primary" type="submit">保存套餐</button><button id="reset-plan-form" class="button ghost" type="button">清空</button><span id="plan-form-note" class="muted"></span></div>
         </form>

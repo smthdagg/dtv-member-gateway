@@ -17,7 +17,7 @@ const MEMBER_STATUSES_ZH = {
 
 async function lookupSubscriptionToken(db, tokenHash) {
   return db.prepare(
-    "SELECT t.id AS token_id, t.member_id, t.revoked_at, m.telegram_user_id, m.display_name, m.status AS member_status, m.expires_at, m.max_devices, m.plan_id, p.name AS plan_name, p.enabled AS plan_enabled FROM tokens t JOIN members m ON m.id = t.member_id LEFT JOIN plans p ON p.id = m.plan_id WHERE t.token_hash = ? ORDER BY t.created_at DESC LIMIT 1"
+    "SELECT t.id AS token_id, t.member_id, t.revoked_at, m.telegram_user_id, m.display_name, m.status AS member_status, m.expires_at, m.max_devices, m.plan_id, p.name AS plan_name, p.enabled AS plan_enabled, COALESCE(p.include_all, 0) AS include_all FROM tokens t JOIN members m ON m.id = t.member_id LEFT JOIN plans p ON p.id = m.plan_id WHERE t.token_hash = ? ORDER BY t.created_at DESC LIMIT 1"
   ).bind(tokenHash).first();
 }
 
@@ -27,11 +27,17 @@ function memberUsable(lookup) {
     lookup.expires_at && Date.parse(lookup.expires_at) > Date.now();
 }
 
-async function loadPlanJsonResources(db, planId) {
-  const result = await db.prepare(
-    "SELECT r.id, r.slug, r.name, r.upstream_url, r.allowed_hosts, r.rewrite_fields, r.content_hash, s.content_json, s.synced_at, s.url_count FROM resources r JOIN plan_resources pr ON pr.resource_id = r.id AND pr.plan_id = ? LEFT JOIN resource_snapshots s ON s.resource_id = r.id WHERE r.enabled = 1 AND r.type = 'json' ORDER BY r.created_at ASC, r.slug ASC"
-  ).bind(planId).all();
+async function loadPlanJsonResources(db, planId, includeAll = 0) {
+  const query = includeAll
+    ? "SELECT r.id, r.slug, r.name, r.upstream_url, r.allowed_hosts, r.rewrite_fields, r.content_hash, s.content_json, s.synced_at, s.url_count FROM resources r LEFT JOIN resource_snapshots s ON s.resource_id = r.id WHERE r.enabled = 1 AND r.type = 'json' ORDER BY r.created_at ASC, r.slug ASC"
+    : "SELECT r.id, r.slug, r.name, r.upstream_url, r.allowed_hosts, r.rewrite_fields, r.content_hash, s.content_json, s.synced_at, s.url_count FROM resources r JOIN plan_resources pr ON pr.resource_id = r.id AND pr.plan_id = ? LEFT JOIN resource_snapshots s ON s.resource_id = r.id WHERE r.enabled = 1 AND r.type = 'json' ORDER BY r.created_at ASC, r.slug ASC";
+  const result = includeAll ? await db.prepare(query).all() : await db.prepare(query).bind(planId).all();
   return (result.results || []).filter((row) => typeof row.content_json === "string" && row.content_json.length > 0);
+}
+
+function isPermanentExpiry(value) {
+  const parsed = Date.parse(value || "");
+  return Number.isFinite(parsed) && parsed > Date.now() + 80 * 365.5 * 86_400_000;
 }
 
 async function jsonSubscriptionResponse(request, bodyText) {
@@ -133,7 +139,7 @@ export async function serveAggregate(request, env, token, variant) {
   }
   const device = await noteWeakDevice(env.DB, lookup.member_id, request);
   if (device.blocked) return error(device.reason || "DEVICE_REMOVED", 403);
-  const resources = await loadPlanJsonResources(env.DB, lookup.plan_id);
+  const resources = await loadPlanJsonResources(env.DB, lookup.plan_id, lookup.include_all);
   if (!resources.length) return error("AGGREGATE_EMPTY", 404);
   const origin = gatewayOrigin(request, env);
   let bodyText;
@@ -229,9 +235,9 @@ export async function serveMemberPage(request, env, token) {
   let resources = [];
   let origin = gatewayOrigin(request, env);
   if (usable) {
-    const rows = await env.DB.prepare(
-      "SELECT r.slug, r.name, s.synced_at, s.url_count FROM resources r JOIN plan_resources pr ON pr.resource_id = r.id AND pr.plan_id = ? LEFT JOIN resource_snapshots s ON s.resource_id = r.id WHERE r.enabled = 1 AND r.type = 'json' ORDER BY r.created_at ASC, r.slug ASC"
-    ).bind(lookup.plan_id).all();
+    const rows = lookup.include_all
+      ? await env.DB.prepare("SELECT r.slug, r.name, s.synced_at, s.url_count FROM resources r LEFT JOIN resource_snapshots s ON s.resource_id = r.id WHERE r.enabled = 1 AND r.type = 'json' ORDER BY r.created_at ASC, r.slug ASC").all()
+      : await env.DB.prepare("SELECT r.slug, r.name, s.synced_at, s.url_count FROM resources r JOIN plan_resources pr ON pr.resource_id = r.id AND pr.plan_id = ? LEFT JOIN resource_snapshots s ON s.resource_id = r.id WHERE r.enabled = 1 AND r.type = 'json' ORDER BY r.created_at ASC, r.slug ASC").bind(lookup.plan_id).all();
     resources = (rows.results || []).filter((row) => row.synced_at);
   }
   const primaryBase = String(env.PUBLIC_BASE_URL || "").replace(/\/+$/u, "");
@@ -302,6 +308,6 @@ footer { color: #5f6b80; font-size: 12px; margin-top: 28px; text-align: center; 
 
 function memberPageHtml(data) {
   const body = `<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>AITV 共享社区</title>
-<meta name="theme-color" content="#0D1526"><link rel="icon" type="image/png" href="/logo.png?v=aitv1"><style>${MEMBER_PAGE_CSS}</style></head><body><div class="wrap"><header class="top"><img class="logo" src="/logo.png?v=aitv1" alt="AITV"><div class="brand">AITV 共享社区</div><div class="badge${data.usable ? " ok" : ""}">${escapeHtml(data.status_label)}</div></header><div class="meta">会员 <b>${escapeHtml(data.display_name)}</b>${data.plan_name ? " · 套餐 <b>" + escapeHtml(data.plan_name) + "</b>" : ""}${data.expires_at ? " · 有效期至 <b>" + escapeHtml(data.expires_at.slice(0, 10)) + "</b>" : ""} · 设备 <b>${data.active_devices}/${data.max_devices}</b></div><div id="app"></div><div class="card"><h2>使用说明</h2><ol class="steps"><li>在电视/手机上打开 TVBox（影视仓等兼容应用）。</li><li>进入「设置 → 配置地址」，选择扫码或粘贴多仓订阅地址。</li><li>保存后在仓库列表中选择任意一个仓库即可观看。</li><li>地址仅限本人使用，请勿转发；泄露后可在 Bot 中一键重置。</li></ol></div><footer>生成于 ${escapeHtml(new Date().toISOString().slice(0, 16).replace("T", " "))} · AITV 共享社区 · AI 多仓聚合分享</footer></div><div class="toast" id="toast"></div><script>window.__DTV__=${JSON.stringify(data)};</script><script>${MEMBER_JS}</script></body></html>`;
+<meta name="theme-color" content="#0D1526"><link rel="icon" type="image/png" href="/logo.png?v=aitv1"><style>${MEMBER_PAGE_CSS}</style></head><body><div class="wrap"><header class="top"><img class="logo" src="/logo.png?v=aitv1" alt="AITV"><div class="brand">AITV 共享社区</div><div class="badge${data.usable ? " ok" : ""}">${escapeHtml(data.status_label)}</div></header><div class="meta">会员 <b>${escapeHtml(data.display_name)}</b>${data.plan_name ? " · 套餐 <b>" + escapeHtml(data.plan_name) + "</b>" : ""}${data.expires_at ? (isPermanentExpiry(data.expires_at) ? " · <b>永久有效</b>" : " · 有效期至 <b>" + escapeHtml(data.expires_at.slice(0, 10)) + "</b>") : ""} · 设备 <b>${data.active_devices}/${data.max_devices}</b></div><div id="app"></div><div class="card"><h2>使用说明</h2><ol class="steps"><li>在电视/手机上打开 TVBox（影视仓等兼容应用）。</li><li>进入「设置 → 配置地址」，选择扫码或粘贴多仓订阅地址。</li><li>保存后在仓库列表中选择任意一个仓库即可观看。</li><li>地址仅限本人使用，请勿转发；泄露后可在 Bot 中一键重置。</li></ol></div><footer>生成于 ${escapeHtml(new Date().toISOString().slice(0, 16).replace("T", " "))} · AITV 共享社区 · AI 多仓聚合分享</footer></div><div class="toast" id="toast"></div><script>window.__DTV__=${JSON.stringify(data)};</script><script>${MEMBER_JS}</script></body></html>`;
   return body;
 }
