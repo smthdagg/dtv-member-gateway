@@ -299,10 +299,16 @@ export async function regenerateArtifacts(env, { probe = false, probeLimit = 250
       if (!site || typeof site !== "object") continue;
       const siteKey = `${resource.slug}:${String(site.key || index)}`;
       if (seenSiteKeys.has(siteKey)) continue;
-      const signature = [String(site.api || "").trim(), String(site.name || "").trim()].join("|");
-      if (signature !== "|" && seenSiteSignatures.has(signature)) continue;
+      // 节点身份 = api + ext 配置（对象正确序列化）+ 类型；名称只是各仓的包装，不参与身份
+      const siteApi = String(site.api || "").trim();
+      let extKey = "";
+      if (site.ext !== undefined && site.ext !== null && site.ext !== "") {
+        extKey = typeof site.ext === "object" ? JSON.stringify(site.ext) : String(site.ext).trim();
+      }
+      const signature = [String(site.type ?? ""), siteApi, extKey].join("|");
+      if (seenSiteSignatures.has(signature)) continue;
       seenSiteKeys.add(siteKey);
-      if (signature !== "|") seenSiteSignatures.add(signature);
+      seenSiteSignatures.add(signature);
       const originalName = String(site.name || "").trim();
       let name = originalName;
       if (name && usedSiteNames.has(name)) name = `${name} · ${resource.name || resource.slug}`;
