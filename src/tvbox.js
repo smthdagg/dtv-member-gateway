@@ -2,6 +2,7 @@ import { parseJsonList, parseJsonWithComments, sha256Hex } from "./security.js";
 import { responseHeaders, error } from "./http.js";
 import { noteWeakDevice } from "./devices.js";
 import { rewriteJsonText, gatewayOrigin } from "./rewrite.js";
+import { loadBlockedApis } from "./sync.js";
 import { MEMBER_JS } from "./ui.js";
 
 const TOKEN_PATTERN = /^[A-Za-z0-9_-]{42,48}$/u;
@@ -30,7 +31,7 @@ function memberUsable(lookup) {
 async function loadPlanJsonResources(db, planId, includeAll = 0) {
   const query = includeAll
     ? "SELECT r.id, r.slug, r.name, r.upstream_url, r.allowed_hosts, r.rewrite_fields, r.content_hash, s.content_json, s.synced_at, s.url_count FROM resources r LEFT JOIN resource_snapshots s ON s.resource_id = r.id WHERE r.enabled = 1 AND r.type = 'json' ORDER BY r.created_at ASC, r.slug ASC"
-    : "SELECT r.id, r.slug, r.name, r.upstream_url, r.allowed_hosts, r.rewrite_fields, r.content_hash, s.content_json, s.synced_at, s.url_count FROM resources r JOIN plan_resources pr ON pr.resource_id = r.id AND pr.plan_id = ? LEFT JOIN resource_snapshots s ON s.resource_id = r.id WHERE r.enabled = 1 AND r.type = 'json' ORDER BY r.created_at ASC, r.slug ASC";
+    : "SELECT r.id, r.slug, r.name, r.upstream_url, r.allowed_hosts, r.rewrite_fields, r.content_hash, s.content_json, s.synced_at, s.url_count FROM resources r JOIN plan_resources pr ON pr.resource_id = r.id AND pr.plan_id = ? LEFT JOIN resource_snapshots s ON s.resource_id = r.id WHERE r.enabled = 1 AND r.type = 'json' AND r.last_sync_error = '' ORDER BY r.created_at ASC, r.slug ASC";
   const result = includeAll ? await db.prepare(query).all() : await db.prepare(query).bind(planId).all();
   return (result.results || []).filter((row) => typeof row.content_json === "string" && row.content_json.length > 0);
 }
@@ -70,10 +71,11 @@ function buildMultiWarehouse(resources, origin, token, altOrigin = "") {
   }, null, 2);
 }
 
-async function buildMergedWarehouse(request, env, resources, origin, token) {
+async function buildMergedWarehouse(request, env, resources, origin, token, blockedApis) {
   const merged = { sites: [], lives: [], parses: [] };
   const usedSiteNames = new Set();
   const usedParseNames = new Set();
+  const seenSiteSignatures = new Set();
   let usedBytes = 0;
   for (const resource of resources) {
     const fields = new Set(parseJsonList(resource.rewrite_fields));
@@ -94,6 +96,11 @@ async function buildMergedWarehouse(request, env, resources, origin, token) {
     for (let index = 0; index < siteList.length; index++) {
       const site = siteList[index];
       if (!site || typeof site !== "object") continue;
+      const signature = [String(site.api || "").trim(), String(site.name || "").trim()].join("|");
+      if (signature !== "|" && seenSiteSignatures.has(signature)) continue;
+      const siteApi = String(site.api || "").trim();
+      if (/^https?:\/\//iu.test(siteApi) && blockedApis?.has(siteApi)) continue;
+      if (signature !== "|") seenSiteSignatures.add(signature);
       const originalName = String(site.name || "").trim();
       let name = originalName;
       if (name && usedSiteNames.has(name)) name = `${name} · ${resource.name || resource.slug}`;
@@ -149,7 +156,8 @@ export async function serveAggregate(request, env, token, variant) {
     const altOrigin = origin === backupBase ? primary : backupBase;
     bodyText = buildMultiWarehouse(resources, origin, token, altOrigin);
   } else {
-    const merged = await buildMergedWarehouse(request, env, resources, origin, token);
+    const blockedApis = await loadBlockedApis(env);
+    const merged = await buildMergedWarehouse(request, env, resources, origin, token, blockedApis);
     if (merged.error) return error(merged.error, merged.error === "AGGREGATE_EMPTY" ? 404 : 413);
     bodyText = merged.bodyText;
   }

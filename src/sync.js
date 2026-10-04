@@ -252,7 +252,7 @@ export async function probeHttpApis(env, sites, { limit = 250, concurrency = 25 
   return { checked: upserts.length, alive, dead };
 }
 
-async function loadBlockedApis(env) {
+export async function loadBlockedApis(env) {
   const rows = await env.DB.prepare(
     "SELECT api FROM site_probe_state WHERE fail_streak >= 1 AND last_checked_at > datetime('now', '-24 hours')"
   ).all();
