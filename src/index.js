@@ -101,32 +101,7 @@ function passthroughResponse(upstream, body = upstream.body) {
   });
 }
 
-function cacheTtlFor(contentType) {
-  const ct = String(contentType || "").toLowerCase();
-  if (ct.includes("jar") || ct.includes("zip") || ct.includes("octet-stream") || ct.includes("java-archive")) return 21_600;
-  if (ct.includes("json")) return 900;
-  if (ct.includes("mpegurl")) return 600;
-  if (ct.startsWith("text/")) return 600;
-  return 0;
-}
-
 async function fetchNestedTarget(request, startUrl, limit) {
-  // 服务端缓存：按解密后的上游地址为键，jar/接口响应存边缘，客户端命中即秒回
-  const cacheable = request.method === "GET" && !request.headers.has("range");
-  const cacheKey = cacheable ? new Request("https://aitv-cache.internal/p/" + (await sha256Hex(startUrl)).slice(0, 40)) : null;
-  if (cacheKey) {
-    try {
-      const hit = await caches.default.match(cacheKey);
-      if (hit) {
-        const bytes = new Uint8Array(await hit.arrayBuffer());
-        const contentType = hit.headers.get("x-upstream-type") || "application/octet-stream";
-        return {
-          result: { upstream: new Response(null, { status: 200 }), bytes, contentType, contentDisposition: "", finalUrl: new URL(startUrl) },
-          finalUrl: new URL(startUrl),
-        };
-      }
-    } catch {}
-  }
   let target = new URL(startUrl);
   const requestHeaders = new Headers();
   for (const name of ["accept", "accept-language", "range", "if-range", "if-none-match", "if-modified-since", "user-agent"]) {
@@ -165,14 +140,6 @@ async function fetchNestedTarget(request, startUrl, limit) {
     const text = new TextDecoder().decode(bytes);
     const looksLikeJson = /^[\s]*(?:\{|\[|\/\/|\/\*)/u.test(text);
     const looksLikePlaylist = playlistType || /^\uFEFF?\s*#EXTM3U/mu.test(text);
-    if (cacheKey && upstream.status === 200) {
-      const ttl = cacheTtlFor(contentType);
-      if (ttl > 0) {
-        try {
-          await caches.default.put(cacheKey, new Response(bytes, { headers: { "content-type": contentType, "x-upstream-type": contentType, "cache-control": "public, max-age=" + ttl } }));
-        } catch {}
-      }
-    }
     if (contentType.includes("json") || looksLikeJson || looksLikePlaylist) {
       try { await deliveryBody.cancel(); } catch {}
       return {

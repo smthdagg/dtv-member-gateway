@@ -270,6 +270,20 @@ export async function probeHttpApis(env, sites, { limit = 250, concurrency = 25 
   return { checked: upserts.length, alive, dead };
 }
 
+let epochMemo = { value: "init", expiresAt: 0 };
+
+// 缓存世代：地址库每次重建自动换代，网关缓存随之整体失效（= 缓存有效到下次更新）
+export async function getCacheEpoch(env) {
+  if (Date.now() < epochMemo.expiresAt) return epochMemo.value;
+  try {
+    const row = await env.DB.prepare("SELECT generated_at FROM generated_artifacts WHERE key = 'catalog:merged'").first();
+    epochMemo = { value: String(row?.generated_at || "init").replace(/[^0-9]/gu, "").slice(0, 14), expiresAt: Date.now() + 10_000 };
+  } catch {
+    epochMemo = { value: "init", expiresAt: Date.now() + 10_000 };
+  }
+  return epochMemo.value;
+}
+
 export async function loadProbeMap(env) {
   const rows = await env.DB.prepare(
     "SELECT api, last_ok, fail_streak, latency_ms FROM site_probe_state WHERE last_checked_at > datetime('now', '-24 hours')"
@@ -285,6 +299,7 @@ export async function loadProbeMap(env) {
 }
 
 export async function regenerateArtifacts(env, { probe = false, probeLimit = 250 } = {}) {
+  const isInternalUrl = (value) => /(?:^|[^\w.])(?:localhost|127\.0\.0\.1|10\.|192\.168\.|169\.254\.|172\.(?:1[6-9]|2\d|3[01])\.|::1)/iu.test(String(value || ""));
   // 仓级准入：只有最近一次同步成功（上游当前可达）的仓才进入地址库
   const rows = await env.DB.prepare(
     "SELECT r.slug, r.name, s.content_json FROM resources r JOIN resource_snapshots s ON s.resource_id = r.id WHERE r.enabled = 1 AND r.type = 'json' AND r.last_sync_error = '' ORDER BY r.created_at ASC, r.slug ASC"
@@ -320,8 +335,8 @@ export async function regenerateArtifacts(env, { probe = false, probeLimit = 250
     let value;
     try { value = parseJsonWithComments(resource.content_json); } catch { continue; }
     if (!value || typeof value !== "object" || Array.isArray(value)) continue;
-    if (typeof value.spider === "string" && value.spider.trim()) spiderCandidates.set(resource.slug, value.spider.trim());
-    if (!wallpaper && typeof value.wallpaper === "string" && value.wallpaper) wallpaper = value.wallpaper;
+    if (typeof value.spider === "string" && /^https?:\/\//iu.test(value.spider.trim()) && !isInternalUrl(value.spider)) spiderCandidates.set(resource.slug, value.spider.trim());
+    if (!wallpaper && typeof value.wallpaper === "string" && /^https?:\/\//iu.test(value.wallpaper) && !isInternalUrl(value.wallpaper)) wallpaper = value.wallpaper;
     const siteList = Array.isArray(value.sites) ? value.sites : [];
     for (let index = 0; index < siteList.length; index++) {
       const site = siteList[index];
@@ -344,13 +359,33 @@ export async function regenerateArtifacts(env, { probe = false, probeLimit = 250
       siteCountBySlug.set(resource.slug, (siteCountBySlug.get(resource.slug) || 0) + 1);
     }
     const lifeList = Array.isArray(value.lives) ? value.lives : [];
-    lives.push(...lifeList.filter((item) => item && typeof item === "object"));
+    for (const life of lifeList) {
+      if (!life || typeof life !== "object" || !String(life.name || "").trim()) continue;
+      // 形态一：type 0 + 直播源 url（m3u/txt/php），必须全部为公网 http(s)
+      if (Array.isArray(life.groups)) {
+        const cleanGroups = [];
+        for (const group of life.groups) {
+          if (!group || typeof group !== "object" || !String(group.name || "").trim()) continue;
+          const urls = Array.isArray(group.urls) ? group.urls.filter((u) => typeof u === "string" && /^https?:\/\//iu.test(u) && !isInternalUrl(u)) : [];
+          if (!urls.length) continue;
+          cleanGroups.push({ name: String(group.name).trim(), urls });
+        }
+        if (cleanGroups.length) lives.push({ name: String(life.name).trim(), groups: cleanGroups });
+        continue;
+      }
+      if (typeof life.url === "string" && life.url.trim()) {
+        const urls = life.url.split("#").filter((u) => /^https?:\/\//iu.test(u) && !isInternalUrl(u));
+        if (urls.length) lives.push({ name: String(life.name).trim(), type: 0, url: urls.join("#") });
+      }
+    }
     const parseList = Array.isArray(value.parses) ? value.parses : [];
     for (const parse of parseList) {
       if (!parse || typeof parse !== "object") continue;
-      const key = String(parse.name || "").trim().toLowerCase();
-      if (key && parses.some((item) => String(item.name || "").toLowerCase() === key)) continue;
-      parses.push(parse);
+      const name = String(parse.name || "").trim();
+      const url = String(parse.url || "").trim();
+      if (!name || !/^https?:\/\//iu.test(url) || isInternalUrl(url)) continue;
+      if (parses.some((item) => String(item.name || "").toLowerCase() === name.toLowerCase())) continue;
+      parses.push({ name, type: Number(parse.type) === 1 ? 1 : 0, url });
     }
   }
 
@@ -412,17 +447,28 @@ export async function regenerateArtifacts(env, { probe = false, probeLimit = 250
   let siteIndex = 0;
   for (const group of mergedSites) {
     siteIndex++;
+    const site = group.site;
+    const siteApi = String(site.api || "").trim();
+    // 严格消毒：api 不能是内网/本地地址
+    if (isInternalUrl(siteApi)) continue;
     const displayName = (() => {
       let name = group.name;
       if (name && usedDisplayNames.has(name)) name = `${name} · ${group.copies[0].slug}`;
       if (name) usedDisplayNames.add(name);
       return name || `节点 ${siteIndex}`;
     })();
-    merged.sites.push({
-      ...group.site,
-      key: "aitv_" + (await sha256Hex(group.copies[0].slug + "|" + displayName + "|" + siteIndex)).slice(0, 16),
-      name: displayName,
-    });
+    const clean = { ...site, key: "aitv_" + (await sha256Hex(group.copies[0].slug + "|" + displayName + "|" + siteIndex)).slice(0, 16), name: displayName };
+    // 相对路径 api 解析为绝对地址（合并后脱离原仓域名，相对路径会失效）
+    if (siteApi && !/^https?:\/\//iu.test(siteApi) && !/^csp_/iu.test(siteApi)) {
+      try { clean.api = new URL(siteApi, resource.upstream_url).href; } catch {}
+    }
+    // csp 节点绑定其来源仓的 jar：每个节点用自己仓库的爬虫包，类名必然存在
+    if (/^csp_/iu.test(String(clean.api || "")) && !clean.jar) {
+      const warehouseSpider = spiderCandidates.get(group.slug);
+      if (warehouseSpider) clean.jar = warehouseSpider;
+    }
+    if (clean.jar && isInternalUrl(String(clean.jar))) delete clean.jar;
+    merged.sites.push(clean);
   }
   const single = JSON.stringify(merged);
   const now = nowIso();
