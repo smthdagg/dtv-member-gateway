@@ -98,7 +98,20 @@ async function main() {
   for (const entry of entries) {
     try {
       const { status, text } = await fetchText(entry.sourceUrl, 30_000);
-      const config = JSON.parse(text);
+      let config = JSON.parse(text);
+      // 仓库条目可以指向另一个仓库列表（嵌套）：递归下钻到线路
+      if (!Array.isArray(config.sites) && Array.isArray(config.urls)) {
+        console.log("  ↳", entry.sourceName, "是仓库列表，下钻", config.urls.length, "条线路:");
+        for (const line of config.urls) {
+          const { text: lineText } = await fetchText(line.url, 30_000);
+          const lineConfig = JSON.parse(lineText);
+          const lineSites = Array.isArray(lineConfig.sites) ? lineConfig.sites.length : 0;
+          verdict.warehouses.push({ name: entry.sourceName + " · " + line.name, ok: lineSites > 0, sites: lineSites });
+          console.log("      ✓ 线路:", line.name, "| sites:", lineSites, "| lives:", (lineConfig.lives || []).length);
+          if (!mainConfig && lineSites > 0) mainConfig = lineConfig;
+        }
+        continue;
+      }
       const sites = Array.isArray(config.sites) ? config.sites.length : 0;
       verdict.warehouses.push({ name: entry.sourceName, ok: true, sites });
       console.log("  ✓", entry.sourceName, "| sites:", sites, "| lives:", (config.lives || []).length);

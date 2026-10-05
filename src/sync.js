@@ -270,6 +270,25 @@ export async function probeHttpApis(env, sites, { limit = 250, concurrency = 25 
   return { checked: upserts.length, alive, dead };
 }
 
+const externalMultiCache = { entries: [], expiresAt: 0 };
+
+export async function getExternalMultiEntries(env) {
+  const url = String(env.EXTERNAL_MULTI_URL || "").trim();
+  if (!url) return [];
+  if (externalMultiCache.entries && Date.now() < externalMultiCache.expiresAt) return externalMultiCache.entries;
+  try {
+    const response = await fetch(url, { headers: { "user-agent": "Mozilla/5.0" }, signal: AbortSignal.timeout(5_000) });
+    if (!response.ok) throw new Error("HTTP " + response.status);
+    const parsed = JSON.parse(await response.text());
+    const list = Array.isArray(parsed?.urls) ? parsed.urls.filter((e) => e && e.url && e.name).map((e) => ({ name: String(e.name), url: String(e.url) })) : [];
+    externalMultiCache.entries = list;
+    externalMultiCache.expiresAt = Date.now() + 1_800_000;
+  } catch {
+    externalMultiCache.expiresAt = Date.now() + 300_000;
+  }
+  return externalMultiCache.entries;
+}
+
 let epochMemo = { value: "init", expiresAt: 0 };
 
 // 缓存世代：地址库每次重建自动换代，网关缓存随之整体失效（= 缓存有效到下次更新）
@@ -311,15 +330,13 @@ export async function regenerateArtifacts(env, { probe = false, probeLimit = 250
   const origin = String(env.PUBLIC_BASE_URL || "https://member.example.com").replace(/\/+$/u, "");
   const backupBase = String(env.PUBLIC_BACKUP_URL || "").replace(/\/+$/u, "");
   const entries = [
-    { sourceName: "AiTV主仓库", sourceUrl: origin + "/catalog/all.json" },
+    { name: "AiTV主仓库", url: origin + "/catalog/aitv-main.json" },
+    { name: "AiTV备用仓库", url: backupBase + "/catalog/aitv-backup.json" },
+    { name: "讴歌分享", url: "https://cdn.jsdmirror.com/gh/ouhaibo1980/tvbox@main/tvbox/dc2.txt" },
   ];
-  if (backupBase && backupBase !== origin) {
-    entries.push({ sourceName: "AiTV备用仓库", sourceUrl: backupBase + "/catalog/all.json" });
-  }
-  const multi = JSON.stringify({
-    storeHouse: entries,
-    urls: entries.map((entry) => ({ name: entry.sourceName, url: entry.sourceUrl })),
-  }, null, 2);
+  const multi = JSON.stringify({ urls: entries.map((entry) => ({ name: entry.name, url: entry.url })) }, null, 2);
+  const aitvMain = JSON.stringify({ urls: [{ name: "AiTV聚合精华线路", url: origin + "/catalog/all.json" }] }, null, 2);
+  const aitvBackup = JSON.stringify({ urls: [{ name: "AiTV聚合精华线路", url: backupBase + "/catalog/all.json" }] }, null, 2);
 
   // ===== 归类与测速择优 =====
   // 节点身份 = 类型|api|ext；同身份/同归一化名称的多个实例，只保留实测最快的一个
@@ -347,6 +364,9 @@ export async function regenerateArtifacts(env, { probe = false, probeLimit = 250
       if (site.ext !== undefined && site.ext !== null && site.ext !== "") {
         extKey = typeof site.ext === "object" ? JSON.stringify(site.ext) : String(site.ext).trim();
       }
+      if (!siteApi) continue;
+      const isExecutable = /^https?:\/\//iu.test(siteApi) || /^csp_/iu.test(siteApi);
+      if (!isExecutable) continue;
       const identity = [String(site.type ?? ""), siteApi, extKey].join("|");
       const displayName = String(site.name || "").trim() || `${resource.name || resource.slug} ${index + 1}`;
       const groupKey = identity + "#" + nameNorm(displayName);
@@ -474,6 +494,8 @@ export async function regenerateArtifacts(env, { probe = false, probeLimit = 250
   const now = nowIso();
   await env.DB.batch([
     env.DB.prepare("INSERT INTO generated_artifacts (key, content, generated_at) VALUES ('catalog:multi', ?, ?) ON CONFLICT(key) DO UPDATE SET content = excluded.content, generated_at = excluded.generated_at").bind(multi, now),
+    env.DB.prepare("INSERT INTO generated_artifacts (key, content, generated_at) VALUES ('catalog:aitv-main', ?, ?) ON CONFLICT(key) DO UPDATE SET content = excluded.content, generated_at = excluded.generated_at").bind(aitvMain, now),
+    env.DB.prepare("INSERT INTO generated_artifacts (key, content, generated_at) VALUES ('catalog:aitv-backup', ?, ?) ON CONFLICT(key) DO UPDATE SET content = excluded.content, generated_at = excluded.generated_at").bind(aitvBackup, now),
     env.DB.prepare("INSERT INTO generated_artifacts (key, content, generated_at) VALUES ('catalog:merged', ?, ?) ON CONFLICT(key) DO UPDATE SET content = excluded.content, generated_at = excluded.generated_at").bind(single, now),
   ]);
   return {

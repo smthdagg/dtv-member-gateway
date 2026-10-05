@@ -2,6 +2,7 @@ import { sha256Hex } from "./security.js";
 import { responseHeaders, error } from "./http.js";
 import { noteWeakDevice } from "./devices.js";
 import { rewriteJsonText, gatewayOrigin } from "./rewrite.js";
+import { getExternalMultiEntries } from "./sync.js";
 import { MEMBER_JS } from "./ui.js";
 
 const TOKEN_PATTERN = /^[A-Za-z0-9_-]{42,48}$/u;
@@ -56,17 +57,18 @@ async function jsonSubscriptionResponse(request, bodyText) {
   });
 }
 
-function buildMultiWarehouse(origin, token, altOrigin = "") {
-  // 聚合多仓最终形态：主/备两个仓库，指向同一份测速择优后的聚合单仓
-  const entries = [{ sourceName: "AiTV主仓库", sourceUrl: `${origin}/${token}/all.json` }];
+async function buildMultiWarehouse(env, origin, token, altOrigin = "") {
+  // 聚合多仓最终形态（与验证可用的 dc2 格式一致：仅 urls）：主/备仓库 + 外部验证可用线路
+  const entries = [
+    { name: "AiTV主仓库", url: `${origin}/${token}/all.json` },
+  ];
   const backup = String(altOrigin || "").replace(/\/+$/u, "");
   if (backup && backup !== origin) {
-    entries.push({ sourceName: "AiTV备用仓库", sourceUrl: `${backup}/${token}/all.json` });
+    entries.push({ name: "AiTV备用仓库", url: `${backup}/${token}/all.json` });
   }
-  return JSON.stringify({
-    storeHouse: entries,
-    urls: entries.map((entry) => ({ name: entry.sourceName, url: entry.sourceUrl })),
-  }, null, 2);
+  const external = await getExternalMultiEntries(env);
+  entries.push(...external);
+  return JSON.stringify({ urls: entries }, null, 2);
 }
 
 export async function serveAggregate(request, env, token, variant) {
@@ -89,11 +91,14 @@ export async function serveAggregate(request, env, token, variant) {
   if (!warehouses.length) return error("AGGREGATE_EMPTY", 404);
   const origin = gatewayOrigin(request, env);
   let bodyText;
-  if (variant === "tvbox") {
+  if (variant === "aitv-main" || variant === "aitv-backup") {
+    const base = variant === "aitv-backup" ? (String(env.PUBLIC_BACKUP_URL || "").replace(/\/+$/u, "") || origin) : origin;
+    bodyText = JSON.stringify({ urls: [{ name: "AiTV聚合精华线路", url: `${base}/${token}/all.json` }] }, null, 2);
+  } else if (variant === "tvbox") {
     const primary = String(env.PUBLIC_BASE_URL || "").replace(/\/+$/u, "");
     const backupBase = String(env.PUBLIC_BACKUP_URL || "").replace(/\/+$/u, "");
     const altOrigin = origin === backupBase ? primary : backupBase;
-    bodyText = buildMultiWarehouse(origin, token, altOrigin);
+    bodyText = await buildMultiWarehouse(env, origin, token, altOrigin);
   } else {
     // 单仓 = 读取已准入（去重+探活）的合并产物，整体改写为该会员的网关地址
     const artifact = await env.DB.prepare("SELECT content FROM generated_artifacts WHERE key = 'catalog:merged'").first();
@@ -132,8 +137,8 @@ async function cachedText(request, build, extra = {}) {
 
 export async function serveCatalog(request, env, variant) {
   if (request.method !== "GET" && request.method !== "HEAD") return error("METHOD_NOT_ALLOWED", 405);
-  if (variant === "tvbox" || variant === "all") {
-    const key = variant === "tvbox" ? "catalog:multi" : "catalog:merged";
+  if (variant === "tvbox" || variant === "all" || variant === "aitv-main" || variant === "aitv-backup") {
+    const key = variant === "tvbox" ? "catalog:multi" : variant === "all" ? "catalog:merged" : variant === "aitv-main" ? "catalog:aitv-main" : "catalog:aitv-backup";
     const row = await env.DB.prepare("SELECT content FROM generated_artifacts WHERE key = ?").bind(key).first();
     if (!row?.content) return error("AGGREGATE_EMPTY", 404, "地址库尚未生成，请在后台执行一次「一键抓取更新」。");
     return cachedText(request, async () => row.content);
