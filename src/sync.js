@@ -311,7 +311,8 @@ export async function regenerateArtifacts(env, { probe = false, probeLimit = 250
   const groups = new Map(); // identity -> { site, slug, nameNorm }
   const lives = [];
   const parses = [];
-  let spider = "";
+  const spiderCandidates = new Map(); // slug -> spider
+  const siteCountBySlug = new Map();
   let wallpaper = "";
   let totalRaw = 0;
   const nameNorm = (value) => String(value || "").toLowerCase().replace(/[\s\u3000·•・┃｜│|_\-–——()（）\[\]【】「」『』:：!！?？,，.。'"'"'~～*★☆🔥🎬📺]/gu, "");
@@ -319,7 +320,7 @@ export async function regenerateArtifacts(env, { probe = false, probeLimit = 250
     let value;
     try { value = parseJsonWithComments(resource.content_json); } catch { continue; }
     if (!value || typeof value !== "object" || Array.isArray(value)) continue;
-    if (!spider && typeof value.spider === "string" && value.spider) spider = value.spider;
+    if (typeof value.spider === "string" && value.spider.trim()) spiderCandidates.set(resource.slug, value.spider.trim());
     if (!wallpaper && typeof value.wallpaper === "string" && value.wallpaper) wallpaper = value.wallpaper;
     const siteList = Array.isArray(value.sites) ? value.sites : [];
     for (let index = 0; index < siteList.length; index++) {
@@ -340,6 +341,7 @@ export async function regenerateArtifacts(env, { probe = false, probeLimit = 250
         continue;
       }
       groups.set(groupKey, { site, slug: resource.slug, name: displayName, copies: [{ slug: resource.slug, name: displayName }] });
+      siteCountBySlug.set(resource.slug, (siteCountBySlug.get(resource.slug) || 0) + 1);
     }
     const lifeList = Array.isArray(value.lives) ? value.lives : [];
     lives.push(...lifeList.filter((item) => item && typeof item === "object"));
@@ -362,6 +364,33 @@ export async function regenerateArtifacts(env, { probe = false, probeLimit = 250
   if (probe) probeStats = { ...probeStats, ...(await probeHttpApis(env, probeInput, { limit: probeLimit })) };
   const probeMap = await loadProbeMap(env);
 
+  // spider（jar 包）实测择优：按"贡献合并节点数最多"的仓优先，逐一实测必须是有效 ZIP（PK 魔数），否则不携带
+  async function validateJar(candidate) {
+    const url = String(candidate || "").split(";")[0].trim();
+    if (!/^https?:\/\//iu.test(url)) return false;
+    try {
+      const response = await fetch(url, { redirect: "follow", headers: { "user-agent": "Mozilla/5.0", accept: "application/java-archive, application/zip, application/octet-stream, */*" }, signal: AbortSignal.timeout(12_000) });
+      if (!response.ok) return false;
+      const head = new Uint8Array(await (await response.arrayBuffer()).slice(0, 2));
+      const isZip = head[0] === 0x50 && head[1] === 0x4b;
+      const ctype = (response.headers.get("content-type") || "").toLowerCase();
+      if (isZip || ctype.includes("zip") || ctype.includes("java-archive") || ctype.includes("octet-stream")) return true;
+      return false;
+    } catch { return false; }
+  }
+  const spiderRanking = [...spiderCandidates.entries()]
+    .map(([slug, spider]) => ({ slug, spider, sites: siteCountBySlug.get(slug) || 0 }))
+    .sort((a, b) => b.sites - a.sites)
+    .slice(0, 6);
+  let mergedSpider = "";
+  const spiderReport = [];
+  for (const candidate of spiderRanking) {
+    const valid = await validateJar(candidate.spider);
+    spiderReport.push({ slug: candidate.slug, sites: candidate.sites, valid });
+    if (valid && !mergedSpider) mergedSpider = candidate.spider;
+  }
+  if (!mergedSpider) spiderCandidates.clear();
+
   // 同名组内测速择优：http 型按实测耗时取最快；未测的排后；不可达的剔除；csp 型保留首个
   const mergedSites = [];
   const usedDisplayNames = new Set();
@@ -378,7 +407,7 @@ export async function regenerateArtifacts(env, { probe = false, probeLimit = 250
   }
   mergedSites.sort((a, b) => a.latency - b.latency);
   const merged = { sites: [], lives, parses };
-  if (spider) merged.spider = spider;
+  if (mergedSpider) merged.spider = mergedSpider;
   if (wallpaper) merged.wallpaper = wallpaper;
   let siteIndex = 0;
   for (const group of mergedSites) {
@@ -408,6 +437,7 @@ export async function regenerateArtifacts(env, { probe = false, probeLimit = 250
     lives: merged.lives.length,
     parses: merged.parses.length,
     probe: probeStats,
+    spider: { picked: mergedSpider, report: spiderReport },
     generated_at: now,
   };
 }
