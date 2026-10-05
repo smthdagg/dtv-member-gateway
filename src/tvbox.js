@@ -57,18 +57,10 @@ async function jsonSubscriptionResponse(request, bodyText) {
   });
 }
 
-async function buildMultiWarehouse(env, origin, token, altOrigin = "") {
-  // 聚合多仓最终形态（与验证可用的 dc2 格式一致：仅 urls）：主/备仓库 + 外部验证可用线路
-  const entries = [
-    { name: "AiTV主仓库", url: `${origin}/${token}/all.json` },
-  ];
-  const backup = String(altOrigin || "").replace(/\/+$/u, "");
-  if (backup && backup !== origin) {
-    entries.push({ name: "AiTV备用仓库", url: `${backup}/${token}/all.json` });
-  }
+async function buildMultiWarehouse(env) {
+  // 会员多仓 = 验证可用的外部多仓（与分享源头一致，不自建线路）
   const external = await getExternalMultiEntries(env);
-  entries.push(...external);
-  return JSON.stringify({ urls: entries }, null, 2);
+  return JSON.stringify({ urls: external.map((entry) => ({ name: entry.name, url: entry.url })) }, null, 2);
 }
 
 export async function serveAggregate(request, env, token, variant) {
@@ -98,7 +90,7 @@ export async function serveAggregate(request, env, token, variant) {
     const primary = String(env.PUBLIC_BASE_URL || "").replace(/\/+$/u, "");
     const backupBase = String(env.PUBLIC_BACKUP_URL || "").replace(/\/+$/u, "");
     const altOrigin = origin === backupBase ? primary : backupBase;
-    bodyText = await buildMultiWarehouse(env, origin, token, altOrigin);
+    bodyText = await buildMultiWarehouse(env);
   } else {
     // 单仓 = 读取已准入（去重+探活）的合并产物，整体改写为该会员的网关地址
     const artifact = await env.DB.prepare("SELECT content FROM generated_artifacts WHERE key = 'catalog:merged'").first();
@@ -137,8 +129,8 @@ async function cachedText(request, build, extra = {}) {
 
 export async function serveCatalog(request, env, variant) {
   if (request.method !== "GET" && request.method !== "HEAD") return error("METHOD_NOT_ALLOWED", 405);
-  if (variant === "tvbox" || variant === "all" || variant === "aitv-main" || variant === "aitv-backup") {
-    const key = variant === "tvbox" ? "catalog:multi" : variant === "all" ? "catalog:merged" : variant === "aitv-main" ? "catalog:aitv-main" : "catalog:aitv-backup";
+  if (variant === "tvbox" || variant === "all" || variant === "nodes" || variant === "aitv-main" || variant === "aitv-backup") {
+    const key = variant === "tvbox" ? "catalog:multi" : variant === "aitv-main" ? "catalog:aitv-main" : variant === "aitv-backup" ? "catalog:aitv-backup" : "catalog:merged";
     const row = await env.DB.prepare("SELECT content FROM generated_artifacts WHERE key = ?").bind(key).first();
     if (!row?.content) return error("AGGREGATE_EMPTY", 404, "地址库尚未生成，请在后台执行一次「一键抓取更新」。");
     return cachedText(request, async () => row.content);

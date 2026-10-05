@@ -351,6 +351,10 @@ export default {
         if (request.method === "OPTIONS") return subscriptionResponse(new Response(null, { status: 204, headers: responseHeaders() }));
         return subscriptionResponse(await serveCatalog(request, env, url.pathname.endsWith("main.json") ? "aitv-main" : "aitv-backup"));
       }
+      if (url.pathname === "/nodes.json") {
+        if (request.method === "OPTIONS") return subscriptionResponse(new Response(null, { status: 204, headers: responseHeaders() }));
+        return subscriptionResponse(await serveCatalog(request, env, "nodes"));
+      }
       if (url.pathname === "/catalog/all.json") {
         if (request.method === "OPTIONS") return subscriptionResponse(new Response(null, { status: 204, headers: responseHeaders() }));
         return subscriptionResponse(await serveCatalog(request, env, "all"));
