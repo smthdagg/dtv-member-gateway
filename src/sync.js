@@ -329,12 +329,9 @@ export async function regenerateArtifacts(env, { probe = false, probeLimit = 250
   const resources = rows.results || [];
   const origin = String(env.PUBLIC_BASE_URL || "https://member.example.com").replace(/\/+$/u, "");
   const backupBase = String(env.PUBLIC_BACKUP_URL || "").replace(/\/+$/u, "");
-  const entries = [
-    { name: "AiTV主仓库", url: origin + "/catalog/aitv-main.json" },
-    { name: "AiTV备用仓库", url: backupBase + "/catalog/aitv-backup.json" },
-    { name: "讴歌分享", url: "https://cdn.jsdmirror.com/gh/ouhaibo1980/tvbox@main/tvbox/dc2.txt" },
-  ];
-  const multi = JSON.stringify({ urls: entries.map((entry) => ({ name: entry.name, url: entry.url })) }, null, 2);
+  // 分享源头 = 验证可用的外部多仓（dc2），原样作为我们的多仓内容
+  const externalEntries = await getExternalMultiEntries(env);
+  const multi = JSON.stringify({ urls: externalEntries.map((entry) => ({ name: entry.name, url: entry.url })) }, null, 2);
   const aitvMain = JSON.stringify({ urls: [{ name: "AiTV聚合精华线路", url: origin + "/catalog/all.json" }] }, null, 2);
   const aitvBackup = JSON.stringify({ urls: [{ name: "AiTV聚合精华线路", url: backupBase + "/catalog/all.json" }] }, null, 2);
 
