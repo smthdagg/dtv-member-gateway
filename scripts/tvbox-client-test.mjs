@@ -98,11 +98,21 @@ async function main() {
   for (const entry of entries) {
     try {
       const { status, text } = await fetchText(entry.sourceUrl, 30_000);
-      let config = JSON.parse(text);
+      let config;
+      try { config = JSON.parse(text); }
+      catch {
+        const marker = text.indexOf("**");
+        if (marker > -1) {
+          const b64 = text.slice(marker + 2).trim().replace(/[\x00-\x1f\x7f]/gu, "");
+          config = JSON.parse(Buffer.from(b64, "base64").toString("utf8"));
+          console.log("  ↳", entry.sourceName, "为混淆格式，已解码");
+        } else throw new Error("非 JSON 且无法解码");
+      }
       // 仓库条目可以指向另一个仓库列表（嵌套）：递归下钻到线路
       if (!Array.isArray(config.sites) && Array.isArray(config.urls)) {
-        console.log("  ↳", entry.sourceName, "是仓库列表，下钻", config.urls.length, "条线路:");
-        for (const line of config.urls) {
+        if (String(line?.url || "").startsWith("clan://")) continue;
+        console.log("  ↳", entry.sourceName, "是仓库列表，下钻抽样（共", config.urls.length, "条）:");
+        for (const line of config.urls.slice(0, 5)) {
           const { text: lineText } = await fetchText(line.url, 30_000);
           const lineConfig = JSON.parse(lineText);
           const lineSites = Array.isArray(lineConfig.sites) ? lineConfig.sites.length : 0;

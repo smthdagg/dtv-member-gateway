@@ -2,7 +2,7 @@ import { sha256Hex } from "./security.js";
 import { responseHeaders, error } from "./http.js";
 import { noteWeakDevice } from "./devices.js";
 import { rewriteJsonText, gatewayOrigin } from "./rewrite.js";
-import { getExternalMultiEntries } from "./sync.js";
+import { buildDe5Lines, buildDe5Multi } from "./sync.js";
 import { MEMBER_JS } from "./ui.js";
 
 const TOKEN_PATTERN = /^[A-Za-z0-9_-]{42,48}$/u;
@@ -57,10 +57,10 @@ async function jsonSubscriptionResponse(request, bodyText) {
   });
 }
 
-async function buildMultiWarehouse(env) {
-  // 会员多仓 = 验证可用的外部多仓（与分享源头一致，不自建线路）
-  const external = await getExternalMultiEntries(env);
-  return JSON.stringify({ urls: external.map((entry) => ({ name: entry.name, url: entry.url })) }, null, 2);
+async function buildMultiWarehouse(env, origin) {
+  // 会员多仓 = AiTV 多仓（4 仓：de5 主站 + 3 备份站，与公开分享同源）
+  const de5 = await buildDe5Multi(origin);
+  return JSON.stringify(de5, null, 2);
 }
 
 export async function serveAggregate(request, env, token, variant) {
@@ -90,7 +90,7 @@ export async function serveAggregate(request, env, token, variant) {
     const primary = String(env.PUBLIC_BASE_URL || "").replace(/\/+$/u, "");
     const backupBase = String(env.PUBLIC_BACKUP_URL || "").replace(/\/+$/u, "");
     const altOrigin = origin === backupBase ? primary : backupBase;
-    bodyText = await buildMultiWarehouse(env);
+    bodyText = await buildMultiWarehouse(env, gatewayOrigin(request, env));
   } else {
     // 单仓 = 读取已准入（去重+探活）的合并产物，整体改写为该会员的网关地址
     const artifact = await env.DB.prepare("SELECT content FROM generated_artifacts WHERE key = 'catalog:merged'").first();
@@ -129,6 +129,10 @@ async function cachedText(request, build, extra = {}) {
 
 export async function serveCatalog(request, env, variant) {
   if (request.method !== "GET" && request.method !== "HEAD") return error("METHOD_NOT_ALLOWED", 405);
+  if (variant.startsWith("lines:")) {
+    const lines = await buildDe5Lines(variant.slice(6));
+    return cachedText(request, async () => JSON.stringify(lines, null, 2));
+  }
   if (variant === "tvbox" || variant === "all" || variant === "nodes" || variant === "aitv-main" || variant === "aitv-backup") {
     const key = variant === "tvbox" ? "catalog:multi" : variant === "aitv-main" ? "catalog:aitv-main" : variant === "aitv-backup" ? "catalog:aitv-backup" : "catalog:merged";
     const row = await env.DB.prepare("SELECT content FROM generated_artifacts WHERE key = ?").bind(key).first();

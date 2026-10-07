@@ -347,9 +347,10 @@ export default {
         if (request.method === "OPTIONS") return subscriptionResponse(new Response(null, { status: 204, headers: responseHeaders() }));
         return subscriptionResponse(await serveCatalog(request, env, "tvbox"));
       }
-      if (url.pathname === "/catalog/aitv-main.json" || url.pathname === "/catalog/aitv-backup.json") {
+      const linesMatch = url.pathname.match(/^\/lines\/(main|b\d{1,2})\.json$/u);
+      if (linesMatch) {
         if (request.method === "OPTIONS") return subscriptionResponse(new Response(null, { status: 204, headers: responseHeaders() }));
-        return subscriptionResponse(await serveCatalog(request, env, url.pathname.endsWith("main.json") ? "aitv-main" : "aitv-backup"));
+        return subscriptionResponse(await serveCatalog(request, env, "lines:" + linesMatch[1]));
       }
       if (url.pathname === "/nodes.json") {
         if (request.method === "OPTIONS") return subscriptionResponse(new Response(null, { status: 204, headers: responseHeaders() }));
@@ -377,7 +378,7 @@ export default {
         if (request.method === "OPTIONS") return subscriptionResponse(new Response(null, { status: 204, headers: responseHeaders() }));
         const jsonAlias = requestedSlug.endsWith(".json");
         const slug = jsonAlias ? requestedSlug.slice(0, -5) : requestedSlug;
-        if (parts.length === 2 && ["tvbox", "all", "aitv-main", "aitv-backup"].includes(slug)) {
+        if (parts.length === 2 && ["tvbox", "all"].includes(slug)) {
           return subscriptionResponse(await serveAggregate(request, env, token, slug));
         }
         return subscriptionResponse(await serveResource(request, env, token, slug, parts.slice(2).join("/"), jsonAlias));

@@ -303,6 +303,61 @@ export async function getCacheEpoch(env) {
   return epochMemo.value;
 }
 
+const de5MultiCache = { value: null, expiresAt: 0 };
+const DE5_MAIN_HOST = "0.12yue.de5.net";
+
+// ── AiTV 多仓：只收集 0.12yue.de5.net 主站与备份站 ──
+// 结构（对齐 room.json / dc2）：多仓 = 4 个仓（主站+3 备份站），每仓 → 该域全量线路列表（list.txt 87 条），线路 → 节点
+async function loadDe5Manifest() {
+  if (de5MultiCache.value && Date.now() < de5MultiCache.expiresAt) return de5MultiCache.value;
+  const result = { warehouses: [], linesByKey: {} };
+  try {
+    const [cfgText, listText] = await Promise.all([
+      fetch("https://0.12yue.de5.net/config.json", { headers: { "user-agent": "Mozilla/5.0" }, signal: AbortSignal.timeout(10_000) }).then((r) => r.text()),
+      fetch("https://0.12yue.de5.net/list.txt", { headers: { "user-agent": "Mozilla/5.0" }, signal: AbortSignal.timeout(10_000) }).then((r) => r.text()),
+    ]);
+    const cfg = JSON.parse(cfgText);
+    const names = [];
+    for (const line of listText.split(/\r?\n/u)) {
+      const name = line.split("|")[0].trim();
+      if (/^[^|]+\.json$/iu.test(name)) names.push(name.replace(/\.json$/iu, ""));
+    }
+    const unique = [...new Set(names)];
+    const domains = (cfg.apiDomains || [])
+      .map((d) => ({ base: String(d.base || "").replace(/\/+$/u, ""), tag: String(d.tag || "备份") }))
+      .filter((d) => /^https?:\/\//iu.test(d.base))
+      .sort((a, b) => (b.base.includes(DE5_MAIN_HOST) ? 1 : 0) - (a.base.includes(DE5_MAIN_HOST) ? 1 : 0));
+    if (!domains.length || !unique.length) throw new Error("de5 清单为空");
+    domains.forEach((domain, index) => {
+      const label = domain.base.includes(DE5_MAIN_HOST) ? "主站" : domain.tag;
+      const key = index === 0 ? "main" : "b" + index;
+      const lines = unique.map((name) => ({ name, url: domain.base + "/" + encodeURIComponent(name + ".json") }));
+      if (index === 0 && cfg.liveAggregate?.url) lines.push({ name: "海量直播聚合", url: String(cfg.liveAggregate.url) });
+      result.warehouses.push({ sourceName: "AiTV" + label + " · 全量接口（" + lines.length + "）", sourceUrl: "", key });
+      result.linesByKey[key] = { urls: lines };
+    });
+    de5MultiCache.value = result;
+    de5MultiCache.expiresAt = Date.now() + 30 * 60_000;
+  } catch {
+    if (!de5MultiCache.value) { de5MultiCache.value = result; de5MultiCache.expiresAt = Date.now() + 300_000; }
+  }
+  return de5MultiCache.value;
+}
+
+// 多仓（room.json 的 storeHouse 格式）：4 个仓，各指向本站的该域线路列表端点
+export async function buildDe5Multi(baseUrl) {
+  const manifest = await loadDe5Manifest();
+  const base = String(baseUrl || "https://tvbox.aisoft.live").replace(/\/+$/u, "");
+  const storeHouse = manifest.warehouses.map((w) => ({ sourceName: w.sourceName, sourceUrl: base + "/lines/" + w.key + ".json" }));
+  return { storeHouse };
+}
+
+// 某个域的线路列表（dc2 的 urls 格式）
+export async function buildDe5Lines(key) {
+  const manifest = await loadDe5Manifest();
+  return manifest.linesByKey[key] || { urls: [] };
+}
+
 export async function loadProbeMap(env) {
   const rows = await env.DB.prepare(
     "SELECT api, last_ok, fail_streak, latency_ms FROM site_probe_state WHERE last_checked_at > datetime('now', '-24 hours')"
@@ -330,10 +385,8 @@ export async function regenerateArtifacts(env, { probe = false, probeLimit = 250
   const origin = String(env.PUBLIC_BASE_URL || "https://member.example.com").replace(/\/+$/u, "");
   const backupBase = String(env.PUBLIC_BACKUP_URL || "").replace(/\/+$/u, "");
   // 分享源头 = 验证可用的外部多仓（dc2），原样作为我们的多仓内容
-  const externalEntries = await getExternalMultiEntries(env);
-  const multi = JSON.stringify({ urls: externalEntries.map((entry) => ({ name: entry.name, url: entry.url })) }, null, 2);
-  const aitvMain = JSON.stringify({ urls: [{ name: "AiTV聚合精华线路", url: origin + "/catalog/all.json" }] }, null, 2);
-  const aitvBackup = JSON.stringify({ urls: [{ name: "AiTV聚合精华线路", url: backupBase + "/catalog/all.json" }] }, null, 2);
+  const de5 = await buildDe5Multi(origin);
+  const multi = JSON.stringify(de5, null, 2);
 
   // ===== 归类与测速择优 =====
   // 节点身份 = 类型|api|ext；同身份/同归一化名称的多个实例，只保留实测最快的一个
@@ -437,11 +490,18 @@ export async function regenerateArtifacts(env, { probe = false, probeLimit = 250
   let mergedSpider = "";
   const spiderReport = [];
   for (const candidate of spiderRanking) {
-    const valid = await validateJar(candidate.spider);
+    let valid = await validateJar(candidate.spider);
+    if (!valid) valid = await validateJar(candidate.spider); // 抖动重试一次
     spiderReport.push({ slug: candidate.slug, sites: candidate.sites, valid });
     if (valid && !mergedSpider) mergedSpider = candidate.spider;
   }
-  if (!mergedSpider) spiderCandidates.clear();
+  if (mergedSpider) {
+    await env.DB.prepare("INSERT INTO app_settings (setting_key, plain_value, encrypted_value, updated_at) VALUES ('last_good_spider', ?, NULL, ?) ON CONFLICT(setting_key) DO UPDATE SET plain_value = excluded.plain_value, updated_at = excluded.updated_at")
+      .bind(mergedSpider, nowIso()).run();
+  } else {
+    const lastGood = await env.DB.prepare("SELECT plain_value FROM app_settings WHERE setting_key = 'last_good_spider'").first();
+    if (lastGood?.plain_value) { mergedSpider = lastGood.plain_value; spiderReport.push({ slug: "last-good", sites: 0, valid: true }); }
+  }
 
   // 同名组内测速择优：http 型按实测耗时取最快；未测的排后；不可达的剔除；csp 型保留首个
   const mergedSites = [];
@@ -458,9 +518,16 @@ export async function regenerateArtifacts(env, { probe = false, probeLimit = 250
     mergedSites.push(group);
   }
   mergedSites.sort((a, b) => a.latency - b.latency);
-  // 精华上限：只保留实测最快的 N 个节点（会员端实时改写的 CPU 与体验平衡）
+  // 精华上限：http 按实测耗时取 75%，csp 保留 25%（保证爬虫节点配额）
   const maxMerged = Math.min(600, Math.max(100, Number(env.MERGED_MAX_SITES || 600)));
-  if (mergedSites.length > maxMerged) mergedSites.length = maxMerged;
+  if (mergedSites.length > maxMerged) {
+    const httpAlive = mergedSites.filter((g) => g.latency < 999_999);
+    const others = mergedSites.filter((g) => !(g.latency < 999_999));
+    const httpQuota = Math.min(httpAlive.length, Math.round(maxMerged * 0.75));
+    const kept = [...httpAlive.slice(0, httpQuota), ...others.slice(0, maxMerged - httpQuota)];
+    mergedSites.length = 0;
+    mergedSites.push(...kept);
+  }
   const merged = { sites: [], lives, parses };
   if (mergedSpider) merged.spider = mergedSpider;
   if (wallpaper) merged.wallpaper = wallpaper;
@@ -503,8 +570,6 @@ export async function regenerateArtifacts(env, { probe = false, probeLimit = 250
   const now = nowIso();
   await env.DB.batch([
     env.DB.prepare("INSERT INTO generated_artifacts (key, content, generated_at) VALUES ('catalog:multi', ?, ?) ON CONFLICT(key) DO UPDATE SET content = excluded.content, generated_at = excluded.generated_at").bind(multi, now),
-    env.DB.prepare("INSERT INTO generated_artifacts (key, content, generated_at) VALUES ('catalog:aitv-main', ?, ?) ON CONFLICT(key) DO UPDATE SET content = excluded.content, generated_at = excluded.generated_at").bind(aitvMain, now),
-    env.DB.prepare("INSERT INTO generated_artifacts (key, content, generated_at) VALUES ('catalog:aitv-backup', ?, ?) ON CONFLICT(key) DO UPDATE SET content = excluded.content, generated_at = excluded.generated_at").bind(aitvBackup, now),
     env.DB.prepare("INSERT INTO generated_artifacts (key, content, generated_at) VALUES ('catalog:merged', ?, ?) ON CONFLICT(key) DO UPDATE SET content = excluded.content, generated_at = excluded.generated_at").bind(single, now),
   ]);
   return {
