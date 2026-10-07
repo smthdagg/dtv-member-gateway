@@ -110,9 +110,9 @@ async function main() {
       }
       // 仓库条目可以指向另一个仓库列表（嵌套）：递归下钻到线路
       if (!Array.isArray(config.sites) && Array.isArray(config.urls)) {
-        if (String(line?.url || "").startsWith("clan://")) continue;
         console.log("  ↳", entry.sourceName, "是仓库列表，下钻抽样（共", config.urls.length, "条）:");
         for (const line of config.urls.slice(0, 5)) {
+          if (String(line.url || "").startsWith("clan://")) continue;
           const { text: lineText } = await fetchText(line.url, 30_000);
           const lineConfig = JSON.parse(lineText);
           const lineSites = Array.isArray(lineConfig.sites) ? lineConfig.sites.length : 0;
