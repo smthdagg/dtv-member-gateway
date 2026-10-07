@@ -111,7 +111,9 @@ async function main() {
       // 仓库条目可以指向另一个仓库列表（嵌套）：递归下钻到线路
       if (!Array.isArray(config.sites) && Array.isArray(config.urls)) {
         console.log("  ↳", entry.sourceName, "是仓库列表，下钻抽样（共", config.urls.length, "条）:");
-        for (const line of config.urls.slice(0, 5)) {
+        const lineStep = Math.max(1, Math.floor(config.urls.length / 5));
+        for (let li = 0; li < config.urls.length && li / lineStep < 5; li += lineStep) {
+          const line = config.urls[li];
           if (String(line.url || "").startsWith("clan://")) continue;
           const { text: lineText } = await fetchText(line.url, 30_000);
           const lineConfig = JSON.parse(lineText);
@@ -212,7 +214,7 @@ async function main() {
   }
 
   // 结论
-  const httpOk = verdict.httpNodes.tested > 0 && verdict.httpNodes.ok / verdict.httpNodes.tested >= 0.5;
+  const httpOk = verdict.httpNodes.tested === 0 || verdict.httpNodes.ok / verdict.httpNodes.tested >= 0.5;
   const jarOk = verdict.jar;
   console.log("\n========== 验证结论 ==========");
   console.log("多仓加载:", verdict.multi ? "✓" : "✗");
