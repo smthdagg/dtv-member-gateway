@@ -366,13 +366,12 @@ export async function regenerateArtifacts(env, { probe = false, probeLimit = 250
       if (!isExecutable) continue;
       const identity = [String(site.type ?? ""), siteApi, extKey].join("|");
       const displayName = String(site.name || "").trim() || `${resource.name || resource.slug} ${index + 1}`;
-      const groupKey = identity + "#" + nameNorm(displayName);
-      const existing = groups.get(groupKey);
+      const existing = groups.get(identity);
       if (existing) {
         existing.copies.push({ slug: resource.slug, name: displayName });
         continue;
       }
-      groups.set(groupKey, { site, slug: resource.slug, name: displayName, copies: [{ slug: resource.slug, name: displayName }] });
+      groups.set(identity, { site, slug: resource.slug, name: displayName, identity, copies: [{ slug: resource.slug, name: displayName }] });
       siteCountBySlug.set(resource.slug, (siteCountBySlug.get(resource.slug) || 0) + 1);
     }
     const lifeList = Array.isArray(value.lives) ? value.lives : [];
@@ -387,12 +386,12 @@ export async function regenerateArtifacts(env, { probe = false, probeLimit = 250
           if (!urls.length) continue;
           cleanGroups.push({ name: String(group.name).trim(), urls });
         }
-        if (cleanGroups.length) lives.push({ name: String(life.name).trim(), groups: cleanGroups });
+        if (cleanGroups.length && lives.length < 20) lives.push({ name: String(life.name).trim(), groups: cleanGroups });
         continue;
       }
       if (typeof life.url === "string" && life.url.trim()) {
         const urls = life.url.split("#").filter((u) => /^https?:\/\//iu.test(u) && !isInternalUrl(u));
-        if (urls.length) lives.push({ name: String(life.name).trim(), type: 0, url: urls.join("#") });
+        if (urls.length && lives.length < 20) lives.push({ name: String(life.name).trim(), type: 0, url: urls.join("#") });
       }
     }
     const parseList = Array.isArray(value.parses) ? value.parses : [];
@@ -402,6 +401,7 @@ export async function regenerateArtifacts(env, { probe = false, probeLimit = 250
       const url = String(parse.url || "").trim();
       if (!name || !/^https?:\/\//iu.test(url) || isInternalUrl(url)) continue;
       if (parses.some((item) => String(item.name || "").toLowerCase() === name.toLowerCase())) continue;
+      if (parses.length >= 12) continue;
       parses.push({ name, type: Number(parse.type) === 1 ? 1 : 0, url });
     }
   }
@@ -458,6 +458,9 @@ export async function regenerateArtifacts(env, { probe = false, probeLimit = 250
     mergedSites.push(group);
   }
   mergedSites.sort((a, b) => a.latency - b.latency);
+  // 精华上限：只保留实测最快的 N 个节点（会员端实时改写的 CPU 与体验平衡）
+  const maxMerged = Math.min(600, Math.max(100, Number(env.MERGED_MAX_SITES || 600)));
+  if (mergedSites.length > maxMerged) mergedSites.length = maxMerged;
   const merged = { sites: [], lives, parses };
   if (mergedSpider) merged.spider = mergedSpider;
   if (wallpaper) merged.wallpaper = wallpaper;
@@ -474,7 +477,16 @@ export async function regenerateArtifacts(env, { probe = false, probeLimit = 250
       if (name) usedDisplayNames.add(name);
       return name || `节点 ${siteIndex}`;
     })();
-    const clean = { ...site, key: "aitv_" + (await sha256Hex(group.copies[0].slug + "|" + displayName + "|" + siteIndex)).slice(0, 16), name: displayName };
+    // 稳定 key：由节点身份派生（重建间不变，收藏/历史不丢）
+    const clean = {
+      ...site,
+      key: "aitv_" + (await sha256Hex(group.identity)).slice(0, 16),
+      name: displayName,
+      searchable: site.searchable ?? 1,
+      quickSearch: site.quickSearch ?? 1,
+      filterable: site.filterable ?? 1,
+      changeable: site.changeable ?? 0,
+    };
     // 相对路径 api 解析为绝对地址（合并后脱离原仓域名，相对路径会失效）
     if (siteApi && !/^https?:\/\//iu.test(siteApi) && !/^csp_/iu.test(siteApi)) {
       try { clean.api = new URL(siteApi, resource.upstream_url).href; } catch {}
