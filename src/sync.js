@@ -339,7 +339,10 @@ async function loadDe5Manifest() {
     de5MultiCache.value = result;
     de5MultiCache.expiresAt = Date.now() + 30 * 60_000;
   } catch {
-    if (!de5MultiCache.value) { de5MultiCache.value = result; de5MultiCache.expiresAt = Date.now() + 300_000; }
+    // 拉取失败：不覆盖已有清单，60 秒后快速重试
+    if (!de5MultiCache.value) de5MultiCache.value = { warehouses: [], linesByKey: {} };
+    de5MultiCache.expiresAt = Date.now() + 60_000;
+    return de5MultiCache.value;
   }
   return de5MultiCache.value;
 }
@@ -347,6 +350,7 @@ async function loadDe5Manifest() {
 // 多仓（room.json 的 storeHouse 格式）：4 个仓，各指向本站的该域线路列表端点
 export async function buildDe5Multi(baseUrl) {
   const manifest = await loadDe5Manifest();
+  if (!manifest.warehouses.length) return null;
   const base = String(baseUrl || "https://tvbox.aisoft.live").replace(/\/+$/u, "");
   const storeHouse = manifest.warehouses.map((w) => ({ sourceName: w.sourceName, sourceUrl: base + "/lines/" + w.key + ".json" }));
   return { storeHouse };
@@ -386,7 +390,7 @@ export async function regenerateArtifacts(env, { probe = false, probeLimit = 250
   const backupBase = String(env.PUBLIC_BACKUP_URL || "").replace(/\/+$/u, "");
   // 分享源头 = 验证可用的外部多仓（dc2），原样作为我们的多仓内容
   const de5 = await buildDe5Multi(origin);
-  const multi = JSON.stringify(de5, null, 2);
+  const multi = de5 ? JSON.stringify(de5, null, 2) : null; // null = 保留旧产物
 
   // ===== 归类与测速择优 =====
   // 节点身份 = 类型|api|ext；同身份/同归一化名称的多个实例，只保留实测最快的一个
@@ -568,8 +572,10 @@ export async function regenerateArtifacts(env, { probe = false, probeLimit = 250
   }
   const single = JSON.stringify(merged);
   const now = nowIso();
+  const artifactStatements = [];
+  if (multi) artifactStatements.push(env.DB.prepare("INSERT INTO generated_artifacts (key, content, generated_at) VALUES ('catalog:multi', ?, ?) ON CONFLICT(key) DO UPDATE SET content = excluded.content, generated_at = excluded.generated_at").bind(multi, now));
   await env.DB.batch([
-    env.DB.prepare("INSERT INTO generated_artifacts (key, content, generated_at) VALUES ('catalog:multi', ?, ?) ON CONFLICT(key) DO UPDATE SET content = excluded.content, generated_at = excluded.generated_at").bind(multi, now),
+    ...artifactStatements,
     env.DB.prepare("INSERT INTO generated_artifacts (key, content, generated_at) VALUES ('catalog:merged', ?, ?) ON CONFLICT(key) DO UPDATE SET content = excluded.content, generated_at = excluded.generated_at").bind(single, now),
   ]);
   return {

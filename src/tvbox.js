@@ -59,8 +59,12 @@ async function jsonSubscriptionResponse(request, bodyText) {
 
 async function buildMultiWarehouse(env, origin) {
   // 会员多仓 = AiTV 多仓（4 仓：de5 主站 + 3 备份站，与公开分享同源）
-  const de5 = await buildDe5Multi(origin);
-  return JSON.stringify(de5, null, 2);
+  let de5 = await buildDe5Multi(origin);
+  if (!de5) de5 = await buildDe5Multi(origin); // 瞬时失败重试一次
+  if (de5) return JSON.stringify(de5, null, 2);
+  // 仍失败：回退到存库的最近一次产物
+  const row = await env.DB.prepare("SELECT content FROM generated_artifacts WHERE key = 'catalog:multi'").first();
+  return row?.content || JSON.stringify({ storeHouse: [] }, null, 2);
 }
 
 export async function serveAggregate(request, env, token, variant) {
