@@ -554,7 +554,8 @@ export async function adminApi(request, env) {
       try { rows.push(await syncJsonResource(env.DB, env, resource)); }
       catch (error) { rows.push({ slug: resource.slug, ok: false, error: "SYNC_EXCEPTION", error_detail: String(error?.message || error).slice(0, 120) }); }
     }
-    const expansion = await expandMultiCatalog(env, { limit: 3, perSource: 40 });
+    // de5-only 模式：一键更新不做外部多仓展开（保留「展开外部多仓」手动按钮备用）
+    const expansion = { sources: 0, found: 0, created: 0, duplicate: 0, invalid: 0, details: [] };
     const artifacts = await regenerateArtifacts(env, { probe: true, probeLimit: 250 });
     return json({
       synced: rows.filter((row) => row.ok).length,
