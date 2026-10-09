@@ -1,8 +1,8 @@
-import { sha256Hex } from "./security.js";
+import { encryptOpaque, sha256Hex } from "./security.js";
 import { responseHeaders, error } from "./http.js";
 import { noteWeakDevice } from "./devices.js";
 import { rewriteJsonText, gatewayOrigin } from "./rewrite.js";
-import { buildDe5Lines, buildDe5Multi } from "./sync.js";
+import { buildDe5Lines, buildDe5Multi, loadDe5Manifest } from "./sync.js";
 import { MEMBER_JS } from "./ui.js";
 
 const TOKEN_PATTERN = /^[A-Za-z0-9_-]{42,48}$/u;
@@ -57,14 +57,35 @@ async function jsonSubscriptionResponse(request, bodyText) {
   });
 }
 
-async function buildMultiWarehouse(env, origin) {
-  // 会员多仓 = AiTV 多仓（4 仓：de5 主站 + 3 备份站，与公开分享同源）
-  let de5 = await buildDe5Multi(origin);
-  if (!de5) de5 = await buildDe5Multi(origin); // 瞬时失败重试一次
-  if (de5) return JSON.stringify(de5, null, 2);
-  // 仍失败：回退到存库的最近一次产物
-  const row = await env.DB.prepare("SELECT content FROM generated_artifacts WHERE key = 'catalog:multi'").first();
-  return row?.content || JSON.stringify({ storeHouse: [] }, null, 2);
+const lineEncCache = new Map(); // de5 原始 URL -> 加密串（跨会员复用）
+
+async function buildMemberLines(env, origin, token, key) {
+  const manifest = await loadDe5Manifest();
+  const lines = manifest.linesByKey[key]?.urls || [];
+  const entries = [];
+  for (const line of lines) {
+    let enc = lineEncCache.get(line.url);
+    if (!enc) { enc = await encryptOpaque(line.url, env.TOKEN_ENCRYPTION_KEY); lineEncCache.set(line.url, enc); }
+    entries.push({ name: line.name, url: `${origin}/${token}/duo/__p/${enc}.json` });
+  }
+  return { urls: entries };
+}
+
+async function buildMultiWarehouse(env, origin, token) {
+  // 会员多仓 = 4 仓，每仓指向该会员的专属线路文件（网关加密，不暴露上游）
+  let manifest = null;
+  for (let attempt = 0; attempt < 2 && !manifest; attempt++) manifest = await loadDe5Manifest();
+  if (!manifest.warehouses.length) {
+    const row = await env.DB.prepare("SELECT content FROM generated_artifacts WHERE key = 'catalog:multi'").first();
+    if (row?.content) {
+      const fallback = JSON.parse(row.content);
+      for (const w of fallback.storeHouse || []) w.sourceUrl = origin + "/" + token + "/" + w.sourceUrl.replace(/^https?:\/\/[^/]+\//u, "");
+      return JSON.stringify(fallback, null, 2);
+    }
+    return JSON.stringify({ storeHouse: [] }, null, 2);
+  }
+  const storeHouse = manifest.warehouses.map((w) => ({ sourceName: w.sourceName, sourceUrl: `${origin}/${token}/lines/${w.key}.json` }));
+  return JSON.stringify({ storeHouse }, null, 2);
 }
 
 export async function serveAggregate(request, env, token, variant) {
@@ -87,14 +108,18 @@ export async function serveAggregate(request, env, token, variant) {
   if (!warehouses.length) return error("AGGREGATE_EMPTY", 404);
   const origin = gatewayOrigin(request, env);
   let bodyText;
-  if (variant === "aitv-main" || variant === "aitv-backup") {
+  if (variant.startsWith("lines:")) {
+    // 会员专属线路文件：线路 URL 全部为网关加密地址（/{token}/duo/__p/...）
+    const lines = await buildMemberLines(env, origin, token, variant.slice(6));
+    bodyText = JSON.stringify(lines, null, 2);
+  } else if (variant === "aitv-main" || variant === "aitv-backup") {
     const base = variant === "aitv-backup" ? (String(env.PUBLIC_BACKUP_URL || "").replace(/\/+$/u, "") || origin) : origin;
     bodyText = JSON.stringify({ urls: [{ name: "AiTV聚合精华线路", url: `${base}/${token}/all.json` }] }, null, 2);
   } else if (variant === "tvbox") {
     const primary = String(env.PUBLIC_BASE_URL || "").replace(/\/+$/u, "");
     const backupBase = String(env.PUBLIC_BACKUP_URL || "").replace(/\/+$/u, "");
     const altOrigin = origin === backupBase ? primary : backupBase;
-    bodyText = await buildMultiWarehouse(env, gatewayOrigin(request, env));
+    bodyText = await buildMultiWarehouse(env, origin, token);
   } else {
     // 单仓 = 读取已准入（去重+探活）的合并产物，整体改写为该会员的网关地址
     const artifact = await env.DB.prepare("SELECT content FROM generated_artifacts WHERE key = 'catalog:merged'").first();

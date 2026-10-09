@@ -271,6 +271,8 @@ async function serveResource(request, env, token, slug, suffixPath, jsonAlias = 
     try { target = new URL(await decryptToken(encryptedTarget, env.TOKEN_ENCRYPTION_KEY)); }
     catch { return error("TARGET_INVALID", 400); }
     if (!isPublicHostname(target.hostname) || !(target.protocol === "http:" || target.protocol === "https:") || target.username || target.password || target.href.length > 2048) return error("TARGET_INVALID", 400);
+    const proxyHosts = String(env.PROXY_ALLOWED_HOSTS || "0.12yue.de5.net,0.wudaozhe.net,0.cdz.qzz.io,0.wdzb.eu.cc").split(",").map((h) => h.trim().toLowerCase()).filter(Boolean);
+    if (proxyHosts.length && !proxyHosts.includes(target.hostname.toLowerCase())) return error("TARGET_INVALID", 403);
   } else {
     target = upstreamTarget(resource, suffix, new URL(request.url));
   }
@@ -380,6 +382,9 @@ export default {
         const slug = jsonAlias ? requestedSlug.slice(0, -5) : requestedSlug;
         if (parts.length === 2 && ["tvbox", "all"].includes(slug)) {
           return subscriptionResponse(await serveAggregate(request, env, token, slug));
+        }
+        if (parts.length === 3 && parts[1] === "lines" && /^(main|b\d{1,2})\.json$/u.test(parts[2])) {
+          return subscriptionResponse(await serveAggregate(request, env, token, "lines:" + parts[2].replace(/\.json$/u, "")));
         }
         return subscriptionResponse(await serveResource(request, env, token, slug, parts.slice(2).join("/"), jsonAlias));
       }

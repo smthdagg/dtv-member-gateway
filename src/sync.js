@@ -308,7 +308,7 @@ const DE5_MAIN_HOST = "0.12yue.de5.net";
 
 // ── AiTV 多仓：只收集 0.12yue.de5.net 主站与备份站 ──
 // 结构（对齐 room.json / dc2）：多仓 = 4 个仓（主站+3 备份站），每仓 → 该域全量线路列表（list.txt 87 条），线路 → 节点
-async function loadDe5Manifest() {
+export async function loadDe5Manifest() {
   if (de5MultiCache.value && Date.now() < de5MultiCache.expiresAt) return de5MultiCache.value;
   const result = { warehouses: [], linesByKey: {} };
   try {
