@@ -271,6 +271,9 @@ async function serveResource(request, env, token, slug, suffixPath, jsonAlias = 
     try { target = new URL(await decryptToken(encryptedTarget, env.TOKEN_ENCRYPTION_KEY)); }
     catch { return error("TARGET_INVALID", 400); }
     if (!isPublicHostname(target.hostname) || !(target.protocol === "http:" || target.protocol === "https:") || target.username || target.password || target.href.length > 2048) return error("TARGET_INVALID", 400);
+    // TVBox 的 ;md5;校验注释不是 URL 的一部分，取上游前剥离
+    const md5Annotation = target.href.match(/;md5;[0-9a-f]{6,64}$/iu);
+    if (md5Annotation) target = new URL(target.href.slice(0, md5Annotation.index));
   } else {
     target = upstreamTarget(resource, suffix, new URL(request.url));
   }
