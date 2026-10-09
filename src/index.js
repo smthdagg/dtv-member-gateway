@@ -271,8 +271,6 @@ async function serveResource(request, env, token, slug, suffixPath, jsonAlias = 
     try { target = new URL(await decryptToken(encryptedTarget, env.TOKEN_ENCRYPTION_KEY)); }
     catch { return error("TARGET_INVALID", 400); }
     if (!isPublicHostname(target.hostname) || !(target.protocol === "http:" || target.protocol === "https:") || target.username || target.password || target.href.length > 2048) return error("TARGET_INVALID", 400);
-    const proxyHosts = String(env.PROXY_ALLOWED_HOSTS || "0.12yue.de5.net,0.wudaozhe.net,0.cdz.qzz.io,0.wdzb.eu.cc").split(",").map((h) => h.trim().toLowerCase()).filter(Boolean);
-    if (proxyHosts.length && !proxyHosts.includes(target.hostname.toLowerCase())) return error("TARGET_INVALID", 403);
   } else {
     target = upstreamTarget(resource, suffix, new URL(request.url));
   }
